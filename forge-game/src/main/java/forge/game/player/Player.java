@@ -443,7 +443,7 @@ public class Player extends GameEntity implements Comparable<Player> {
 
     /** 810.4: in a Two-Headed Giant game, life isn't tracked per player, it's one pool per team. */
     private boolean hasSharedTeamLife() {
-        return game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant);
+        return game.getRules().isTwoHeadedGiant();
     }
 
     // Mirrors this player's post-change life total onto teammates directly (not via gainLife/loseLife,
@@ -453,9 +453,13 @@ public class Player extends GameEntity implements Comparable<Player> {
             return;
         }
         for (Player mate : getTeamMates(false)) {
-            if (mate.life != life) {
+            final int mateOldLife = mate.life;
+            if (mateOldLife != life) {
                 mate.life = life;
                 mate.view.updateLife(mate);
+                // so the teammate's own sound/log/network listeners (keyed off this event, not the
+                // raw life field) see their life total change too, not just the player who acted.
+                game.fireEvent(new GameEventPlayerLivesChanged(mate, mateOldLife, mate.life));
             }
         }
     }
@@ -2074,7 +2078,7 @@ public class Player extends GameEntity implements Comparable<Player> {
         // Rule 704.5c - If a player has the lose-threshold or more poison counters, he or she loses the game.
         // 704.6b In a Two-Headed Giant game, if a team has fifteen or more poison counters (combined), that team
         // loses the game. See rule 810, "Two-Headed Giant Variant."
-        final boolean isTwoHeadedGiant = game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant);
+        final boolean isTwoHeadedGiant = game.getRules().isTwoHeadedGiant();
         int poisonCounters = getCounters(CounterEnumType.POISON);
         if (isTwoHeadedGiant) {
             for (Player mate : getTeamMates(false)) {

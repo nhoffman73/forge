@@ -1947,7 +1947,7 @@ public class GameAction {
             // then the rest have lost!
             reason = GameEndReason.WinsGameSpellEffect;
             for (Player pl : allPlayers) {
-                if (pl.equals(p)) {
+                if (pl.equals(p) || pl.sameTeam(p)) {
                     continue;
                 }
 
@@ -1975,8 +1975,10 @@ public class GameAction {
 
             // 810: in a Two-Headed Giant game, if one player on a team loses, the whole team loses -
             // needed even with shared life, since non-life losses (decking out, a targeted "loses the
-            // game" effect, concession) only naturally fail the one affected player.
-            if (losers != null) {
+            // game" effect, concession) only naturally fail the one affected player. Gated to 2HG
+            // specifically - other modes (Archenemy, generic multiplayer) also assign team numbers
+            // but don't share a team loss condition.
+            if (losers != null && game.getRules().isTwoHeadedGiant()) {
                 List<Player> cascaded = null;
                 for (Player p : losers) {
                     for (Player mate : p.getTeamMates(false)) {

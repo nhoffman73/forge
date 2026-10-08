@@ -125,7 +125,7 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
         if (playerTurn == null) {
             return Collections.emptyList();
         }
-        if (game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant)) {
+        if (game.getRules().isTwoHeadedGiant()) {
             return playerTurn.getYourTeam();
         }
         return Collections.singletonList(playerTurn);
@@ -237,7 +237,7 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                 // 103.7a (2-player) / 810.6 (2HG, team-level): whoever/whichever team plays first
                 // skips the draw step of their first turn. `turn` increments once per team-turn in
                 // 2HG (see getNextPrimaryPlayerAfter), so this is still "the very first turn" there.
-                return turn == 1 && (game.getPlayers().size() == 2 || game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant));
+                return turn == 1 && (game.getPlayers().size() == 2 || game.getRules().isTwoHeadedGiant());
 
             case COMBAT_BEGIN:
             case COMBAT_DECLARE_ATTACKERS:
@@ -517,12 +517,16 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                         c.setCameUnderControlSinceLastUpkeep(false);
                     }
                 }
-                game.getUpkeep().executeUntilEndOfPhase(playerTurn);
-                game.getUpkeep().registerUntilEndCommand(playerTurn);
+                for (Player p : getPlayersSharingTurn()) {
+                    game.getUpkeep().executeUntilEndOfPhase(p);
+                    game.getUpkeep().registerUntilEndCommand(p);
+                }
                 break;
 
             case UNTAP:
-                game.getUntap().executeUntilEndOfPhase(playerTurn);
+                for (Player p : getPlayersSharingTurn()) {
+                    game.getUntap().executeUntilEndOfPhase(p);
+                }
                 break;
 
             case COMBAT_END:
@@ -877,7 +881,7 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
      *  must go to team B's primary player - not to team A's other member, who already acted. */
     private Player getNextPrimaryPlayerAfter(final Player p) {
         Player next = game.getNextPlayerAfter(p);
-        if (game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant)) {
+        if (game.getRules().isTwoHeadedGiant()) {
             while (next.sameTeam(p)) {
                 next = game.getNextPlayerAfter(next);
             }

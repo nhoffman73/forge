@@ -418,6 +418,10 @@ public class VMatchUI implements IVTopLevelUI {
 
             fieldCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), rb.getW(), fieldH));
 
+            if (existingHandCell != null) {
+                existingHandCell.removeDoc(myVHand);
+            }
+
             final DragCell newHandCell = new DragCell();
             newHandCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY() + fieldH, rb.getW(), handH));
             FView.SINGLETON_INSTANCE.addDragCell(newHandCell);

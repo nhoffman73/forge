@@ -120,12 +120,12 @@ public class HostedMatch {
         if (appliedVariants != null && !appliedVariants.isEmpty()) {
             gameRules.setAppliedVariants(appliedVariants);
         }
-        if (gameRules.hasAppliedVariant(GameType.TwoHeadedGiant)) {
+        if (gameRules.isTwoHeadedGiant()) {
             gameRules.setPoisonCountersToLose(15); // 810: a team loses at 15 combined poison counters, not 10
         }
 
         final List<RegisteredPlayer> sortedPlayers = Lists.newArrayList(players);
-        if (!gameRules.hasAppliedVariant(GameType.TwoHeadedGiant)) {
+        if (!gameRules.isTwoHeadedGiant()) {
             // Two-Headed Giant needs teams seated adjacently in turn order (CR 805.1);
             // the lobby already built that seating, so don't let a human-first sort scramble it.
             sortedPlayers.sort((p1, p2) -> {

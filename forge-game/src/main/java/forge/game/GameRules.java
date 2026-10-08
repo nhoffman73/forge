@@ -121,6 +121,10 @@ public class GameRules {
         return appliedVariants.contains(variant);
     }
 
+    public boolean isTwoHeadedGiant() {
+        return hasAppliedVariant(GameType.TwoHeadedGiant);
+    }
+
     public boolean hasCommander() {
         return appliedVariants.contains(GameType.Commander)
                 || appliedVariants.contains(GameType.Oathbreaker)
