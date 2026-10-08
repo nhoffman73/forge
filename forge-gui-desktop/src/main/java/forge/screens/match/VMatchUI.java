@@ -374,60 +374,83 @@ public class VMatchUI implements IVTopLevelUI {
     }
 
     /**
-     * Gives each local player beyond the first (index 0, which already has its own HAND_0
-     * cell from the default layout) a dedicated cell for their hand, carved out of their own
-     * battlefield cell. Without this, a second local hand (hotseat, e.g. Two-Headed Giant with
-     * two human teammates on one machine) ends up tabbed together with that same player's own
-     * field in one cell, forcing them to click back and forth between their own board and their
-     * own hand just to play - this mirrors the existing FIELD_0/HAND_0 split so both players get
-     * the same always-visible layout.
+     * Splits the hand row side by side, one column per local player, instead of letting every
+     * hand beyond the first fall back into sharing a tab with that same player's own battlefield
+     * cell. Without this, a second local hand (hotseat, e.g. Two-Headed Giant with two human
+     * teammates on one machine) forces that player to click back and forth between their own
+     * board and their own hand just to play. Side by side (rather than stacked above/below each
+     * player's own field) keeps both hands visible at a consistent height along the bottom edge,
+     * each with the full card width a horizontal strip of cards wants.
      */
     private void assignHandsToOwnCells() {
-        for (int i = 1; i < EDocID.Hands.length && i < lstHands.size(); i++) {
+        final List<VHand> handsInOrder = new ArrayList<>();
+        for (int i = 0; i < EDocID.Hands.length && i < lstHands.size(); i++) {
             final EDocID handId = EDocID.Hands[i];
-            VHand myVHand = null;
             for (final VHand vHand : lstHands) {
                 if (handId.equals(vHand.getDocumentID())) {
-                    myVHand = vHand;
+                    handsInOrder.add(vHand);
                     break;
                 }
             }
-            if (myVHand == null) {
-                continue;
-            }
-
-            final DragCell existingHandCell = handId.getDoc().getParentCell();
-            if (existingHandCell != null && existingHandCell.isShowing() && existingHandCell.getDocs().size() == 1) {
-                continue; // already has its own dedicated cell from a previous populate() pass
-            }
-
-            if (i >= EDocID.Fields.length) {
-                continue;
-            }
-            final DragCell fieldCell = EDocID.Fields[i].getDoc().getParentCell();
-            if (fieldCell == null || !fieldCell.isShowing()) {
-                continue; // nothing sensible to carve a cell out of
-            }
-
-            final RectangleOfDouble rb = fieldCell.getRoughBounds();
-            // Mirror the default layout's FIELD_0/HAND_0 height split (see res/defaults/match.xml:
-            // field h=0.368, hand h=0.268 of their shared 0.636 -> ~42.1% to the hand) so this looks
-            // consistent with the primary player's own row.
-            final double handH = rb.getH() * 0.421;
-            final double fieldH = rb.getH() - handH;
-
-            fieldCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), rb.getW(), fieldH));
-
-            if (existingHandCell != null) {
-                existingHandCell.removeDoc(myVHand);
-            }
-
-            final DragCell newHandCell = new DragCell();
-            newHandCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY() + fieldH, rb.getW(), handH));
-            FView.SINGLETON_INSTANCE.addDragCell(newHandCell);
-            newHandCell.addDoc(myVHand);
-            dynamicCells.add(newHandCell);
         }
+        if (handsInOrder.size() <= 1) {
+            return;
+        }
+
+        boolean allSettled = true;
+        for (final VHand hand : handsInOrder) {
+            final DragCell c = hand.getParentCell();
+            if (c == null || !c.isShowing() || c.getDocs().size() != 1) {
+                allSettled = false;
+                break;
+            }
+        }
+        if (allSettled) {
+            return; // already split into one dedicated, unshared cell each from a previous pass
+        }
+
+        DragCell baseHandCell = null;
+        for (final VHand hand : handsInOrder) {
+            final DragCell c = hand.getParentCell();
+            if (c != null && c.isShowing()) {
+                baseHandCell = c;
+                break;
+            }
+        }
+        if (baseHandCell == null) {
+            baseHandCell = EDocID.REPORT_LOG.getDoc().getParentCell();
+        }
+        if (baseHandCell == null) {
+            return;
+        }
+
+        for (final VHand hand : handsInOrder) {
+            final DragCell c = hand.getParentCell();
+            if (c != null) {
+                c.removeDoc(hand);
+                if (c.getDocs().isEmpty() && dynamicCells.remove(c)) {
+                    FView.SINGLETON_INSTANCE.removeDragCell(c);
+                }
+            }
+        }
+
+        final RectangleOfDouble rb = baseHandCell.getRoughBounds();
+        final int n = handsInOrder.size();
+        final double slotW = rb.getW() / n;
+
+        baseHandCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), slotW, rb.getH()));
+        baseHandCell.addDoc(handsInOrder.get(0));
+
+        for (int i = 1; i < n; i++) {
+            final DragCell newCell = new DragCell();
+            final double newX = rb.getX() + slotW * i;
+            final double newW = (i < n - 1) ? slotW : (rb.getW() - slotW * i);
+            newCell.setRoughBounds(new RectangleOfDouble(newX, rb.getY(), newW, rb.getH()));
+            FView.SINGLETON_INSTANCE.addDragCell(newCell);
+            newCell.addDoc(handsInOrder.get(i));
+            dynamicCells.add(newCell);
+        }
+
         SResizingUtil.resizeWindow();
     }
 
