@@ -165,6 +165,7 @@ public enum TrackableProperty {
     SleeveArtKey(TrackableTypes.StringType),
     SleeveArtOffset(TrackableTypes.IntegerType),
     Opponents(TrackableTypes.PlayerViewCollectionType),
+    TeamMates(TrackableTypes.PlayerViewCollectionType),
     Life(TrackableTypes.IntegerType),
     MaxHandSize(TrackableTypes.IntegerType),
     HasUnlimitedHandSize(TrackableTypes.BooleanType),

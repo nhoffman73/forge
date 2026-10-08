@@ -1972,6 +1972,27 @@ public class GameAction {
                     losers.add(p);
                 }
             }
+
+            // 810: in a Two-Headed Giant game, if one player on a team loses, the whole team loses -
+            // needed even with shared life, since non-life losses (decking out, a targeted "loses the
+            // game" effect, concession) only naturally fail the one affected player.
+            if (losers != null) {
+                List<Player> cascaded = null;
+                for (Player p : losers) {
+                    for (Player mate : p.getTeamMates(false)) {
+                        if (!losers.contains(mate) && !mate.hasLost()
+                                && mate.loseConditionMet(GameLossReason.TeammateLost, null)) {
+                            if (cascaded == null) {
+                                cascaded = Lists.newArrayList();
+                            }
+                            cascaded.add(mate);
+                        }
+                    }
+                }
+                if (cascaded != null) {
+                    losers.addAll(cascaded);
+                }
+            }
         }
 
         if (losers != null) {

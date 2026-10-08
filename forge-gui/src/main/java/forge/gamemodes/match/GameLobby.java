@@ -350,6 +350,21 @@ public abstract class GameLobby implements IHasGameType {
         return false;
     }
 
+    /** CR 805.1: the shared-team-turns option (which Two-Headed Giant uses) requires each team's
+     *  members to sit in adjacent seats, exactly 2 teams of exactly 2. */
+    private static String checkTwoHeadedGiantSeating(final List<LobbySlot> activeSlots) {
+        final Localizer localizer = Localizer.getInstance();
+        if (activeSlots.size() != 4) {
+            return localizer.getMessage("lblTwoHeadedGiantNeedsFourPlayers");
+        }
+        final int teamA = activeSlots.get(0).getTeam();
+        final int teamB = activeSlots.get(2).getTeam();
+        if (teamA == teamB || activeSlots.get(1).getTeam() != teamA || activeSlots.get(3).getTeam() != teamB) {
+            return localizer.getMessage("lblTwoHeadedGiantNeedsAdjacentTeams");
+        }
+        return null;
+    }
+
     protected void updateView(final boolean fullUpdate) {
         if (listener != null) {
             listener.update(fullUpdate);
@@ -393,6 +408,14 @@ public abstract class GameLobby implements IHasGameType {
         }
 
         final Set<GameType> variantTypes = data.appliedVariants;
+
+        if (variantTypes.contains(GameType.TwoHeadedGiant)) {
+            final String seatingProblem = checkTwoHeadedGiantSeating(activeSlots);
+            if (seatingProblem != null) {
+                SOptionPane.showMessageDialog(seatingProblem);
+                return null;
+            }
+        }
 
         GameType autoGenerateVariant = null;
         boolean isCommanderMatch = false;

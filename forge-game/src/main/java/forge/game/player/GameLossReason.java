@@ -38,6 +38,8 @@ public enum GameLossReason {
 
     OpponentWon,
 
+    TeammateLost, // 810: in a Two-Headed Giant game, a teammate losing means the whole team loses.
+
     IntentionalDraw // Not a real "game loss" as such, but a reason not to continue playing.
     ;
 

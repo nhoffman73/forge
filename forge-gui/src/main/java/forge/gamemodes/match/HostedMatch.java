@@ -120,14 +120,21 @@ public class HostedMatch {
         if (appliedVariants != null && !appliedVariants.isEmpty()) {
             gameRules.setAppliedVariants(appliedVariants);
         }
+        if (gameRules.hasAppliedVariant(GameType.TwoHeadedGiant)) {
+            gameRules.setPoisonCountersToLose(15); // 810: a team loses at 15 combined poison counters, not 10
+        }
 
         final List<RegisteredPlayer> sortedPlayers = Lists.newArrayList(players);
-        sortedPlayers.sort((p1, p2) -> {
+        if (!gameRules.hasAppliedVariant(GameType.TwoHeadedGiant)) {
+            // Two-Headed Giant needs teams seated adjacently in turn order (CR 805.1);
+            // the lobby already built that seating, so don't let a human-first sort scramble it.
+            sortedPlayers.sort((p1, p2) -> {
 
-            final int v1 = p1.getPlayer() instanceof LobbyPlayerHuman ? 0 : 1;
-            final int v2 = p2.getPlayer() instanceof LobbyPlayerHuman ? 0 : 1;
-            return Integer.compare(v1, v2);
-        });
+                final int v1 = p1.getPlayer() instanceof LobbyPlayerHuman ? 0 : 1;
+                final int v2 = p2.getPlayer() instanceof LobbyPlayerHuman ? 0 : 1;
+                return Integer.compare(v1, v2);
+            });
+        }
 
         if (sortedPlayers.size() == 2) {
             title = TextUtil.concatNoSpace(sortedPlayers.get(0).getPlayer().getName(), " vs ", sortedPlayers.get(1).getPlayer().getName());
@@ -270,6 +277,7 @@ public class HostedMatch {
         //ensure opponents set properly
         for (final Player p : players) {
             p.updateOpponentsForView();
+            p.updateTeamMatesForView();
         }
 
         // It's important to run match in a different thread to allow GUI inputs to be invoked from inside game. 
@@ -475,6 +483,7 @@ public class HostedMatch {
             //ensure opponents set properly
             for (final Player p : event.subgame().getPlayers()) {
                 p.updateOpponentsForView();
+                p.updateTeamMatesForView();
             }
 
             return null;

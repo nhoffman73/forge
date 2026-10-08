@@ -123,6 +123,17 @@ public class PlayerView extends GameEntityView {
         return getOpponents().contains(other);
     }
 
+    public List<PlayerView> getTeamMates() {
+        return Objects.requireNonNullElse(get(TrackableProperty.TeamMates), List.of());
+    }
+    void updateTeamMates(Player p) {
+        set(TrackableProperty.TeamMates, PlayerView.getCollection(p.getTeamMates(false)));
+    }
+
+    public boolean isTeammateOf(final PlayerView other) {
+        return getTeamMates().contains(other);
+    }
+
     public final String getCommanderInfo(CardView v) {
         if (v == null) {
             return StringUtils.EMPTY;

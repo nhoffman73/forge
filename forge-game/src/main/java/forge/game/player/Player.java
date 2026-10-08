@@ -308,6 +308,10 @@ public class Player extends GameEntity implements Comparable<Player> {
         view.updateOpponents(this);
     }
 
+    public void updateTeamMatesForView() {
+        view.updateTeamMates(this);
+    }
+
     public void updateFlashbackForView() {
         view.updateFlashback(this);
         game.fireEvent(new GameEventZone(ZoneType.Flashback, this, EventValueChangeType.Added, null));
@@ -437,6 +441,25 @@ public class Player extends GameEntity implements Comparable<Player> {
         return life;
     }
 
+    /** 810.4: in a Two-Headed Giant game, life isn't tracked per player, it's one pool per team. */
+    private boolean hasSharedTeamLife() {
+        return game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant);
+    }
+
+    // Mirrors this player's post-change life total onto teammates directly (not via gainLife/loseLife,
+    // which would reapply replacement effects/triggers that only the actually-affected player should see).
+    private void mirrorLifeToTeam() {
+        if (!hasSharedTeamLife()) {
+            return;
+        }
+        for (Player mate : getTeamMates(false)) {
+            if (mate.life != life) {
+                mate.life = life;
+                mate.view.updateLife(mate);
+            }
+        }
+    }
+
     public final boolean gainLife(int lifeGain, final Card source, final SpellAbility sa) {
         if (!canGainLife() || lifeGain <= 0) {
             return false;
@@ -468,6 +491,7 @@ public class Player extends GameEntity implements Comparable<Player> {
         int oldLife = life;
         life += lifeGain;
         view.updateLife(this);
+        mirrorLifeToTeam();
         boolean firstGain = lifeGainedTimesThisTurn == 0;
         lifeGainedThisTurn += lifeGain;
         lifeGainedTimesThisTurn++;
@@ -526,6 +550,7 @@ public class Player extends GameEntity implements Comparable<Player> {
 
         life -= toLose;
         view.updateLife(this);
+        mirrorLifeToTeam();
         if (manaBurn) {
             game.fireEvent(new GameEventManaBurn(PlayerView.get(this), true, toLose));
         } else {
@@ -2046,15 +2071,29 @@ public class Player extends GameEntity implements Comparable<Player> {
             return true;
         }
 
-        // Rule 704.5c - If a player has ten or more poison counters, he or she loses the game.
-        // 704.6b In a Two-Headed Giant game, if a team has fifteen or more poison counters, that team loses the game. See rule 810, “Two-Headed Giant Variant.”
-        if (getCounters(CounterEnumType.POISON) >= 10 && loseConditionMet(GameLossReason.Poisoned, null)) {
+        // Rule 704.5c - If a player has the lose-threshold or more poison counters, he or she loses the game.
+        // 704.6b In a Two-Headed Giant game, if a team has fifteen or more poison counters (combined), that team
+        // loses the game. See rule 810, "Two-Headed Giant Variant."
+        final boolean isTwoHeadedGiant = game.getRules().hasAppliedVariant(GameType.TwoHeadedGiant);
+        int poisonCounters = getCounters(CounterEnumType.POISON);
+        if (isTwoHeadedGiant) {
+            for (Player mate : getTeamMates(false)) {
+                poisonCounters += mate.getCounters(CounterEnumType.POISON);
+            }
+        }
+        if (poisonCounters >= game.getRules().getPoisonCountersToLose() && loseConditionMet(GameLossReason.Poisoned, null)) {
             return true;
         }
 
         if (game.getRules().hasAppliedVariant(GameType.Commander)) {
             for (Entry<Card, Integer> entry : getCommanderDamage()) {
-                if (entry.getValue() >= 21 && loseConditionMet(GameLossReason.CommanderDamage, null)) {
+                int damage = entry.getValue();
+                if (isTwoHeadedGiant) {
+                    for (Player mate : getTeamMates(false)) {
+                        damage += mate.getCommanderDamage(entry.getKey());
+                    }
+                }
+                if (damage >= 21 && loseConditionMet(GameLossReason.CommanderDamage, null)) {
                     return true;
                 }
             }

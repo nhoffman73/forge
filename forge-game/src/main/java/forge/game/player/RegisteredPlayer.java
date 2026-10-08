@@ -179,6 +179,12 @@ public class RegisteredPlayer {
                 || appliedVariants.contains(GameType.MoJhoSto)) { //fix the crash, if somehow the avatar is null, get it directly from the deck
             start.setVanguardAvatars(vanguardAvatar == null ? deck.get(DeckSection.Avatar).toFlatList() : vanguardAvatar.toFlatList());
         }
+        if (appliedVariants.contains(GameType.TwoHeadedGiant)) {
+            // 810.4: a team's starting life total is 1.5x the normal starting life for the
+            // format it's layered on (20 -> 30 for Constructed, 40 -> 60 for Commander),
+            // applied last so it scales whatever the other variants already set up.
+            start.setStartingLife(start.getStartingLife() * 3 / 2);
+        }
     	return start;
     }
 

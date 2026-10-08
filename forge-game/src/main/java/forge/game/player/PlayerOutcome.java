@@ -75,6 +75,7 @@ public class PlayerOutcome {
             case OpponentWon: return localizer.getMessage("lblLostBecauseAnOpponentHasWonBySpell").replace("%s", loseConditionSpell);
             case SpellEffect: return localizer.getMessage("lblLostDueToEffectOfSpell").replace("%s", loseConditionSpell);
             case CommanderDamage: return localizer.getMessage("lblLostDueToAccumulationOf21DamageFromGenerals");
+            case TeammateLost: return localizer.getMessage("lblLostBecauseTeammateLost");
             case IntentionalDraw: return localizer.getMessage("lblAcceptedThatTheGameIsADraw");
         }
         return localizer.getMessage("lblLostForUnknownReasonBug");

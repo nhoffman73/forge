@@ -651,7 +651,7 @@ public class CardView extends GameEntityView {
             }
             break;
         case Hand:
-            if (controller.equals(viewer)) {
+            if (controller.equals(viewer) || controller.isTeammateOf(viewer)) {
                 return true;
             }
             break;
