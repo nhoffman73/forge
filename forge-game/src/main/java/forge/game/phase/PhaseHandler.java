@@ -567,16 +567,22 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     }
 
     private void declareAttackersTurnBasedAction() {
-        final Player whoDeclares = Objects.requireNonNullElse(playerTurn.getDeclaresAttackers(), playerTurn);
+        // CR 805.4/810: during a shared team turn, each active teammate declares their own attackers
+        // into the same combat. Cost payment (exert/enlist/Propaganda) is scoped per-declarer below so
+        // one teammate's attackers aren't re-asked-about while processing the other's.
+        for (final Player attacker : getPlayersSharingTurn()) {
+            final Player whoDeclares = Objects.requireNonNullElse(attacker.getDeclaresAttackers(), attacker);
 
-        if (CombatUtil.canAttack(playerTurn)) {
+            if (!CombatUtil.canAttack(attacker)) {
+                continue;
+            }
             boolean success = false;
             do {
                 if (game.isGameOver()) { // they just like to close window at any moment
                     return;
                 }
 
-                whoDeclares.getController().declareAttackers(playerTurn, combat);
+                whoDeclares.getController().declareAttackers(attacker, combat);
                 combat.removeAbsentCombatants();
 
                 success = CombatUtil.validateAttackers(combat);
@@ -585,42 +591,43 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                     continue;
                 }
 
+                final CardCollection myAttackers = CardLists.filterControlledBy(combat.getAttackers(), attacker);
                 final CardCollection untapFromCancel = new CardCollection();
                 // do a full loop first so attackers can't be used to pay for Propaganda
-                for (final Card attacker : combat.getAttackers()) {
-                    if (!attacker.attackVigilance()) {
+                for (final Card c : myAttackers) {
+                    if (!c.attackVigilance()) {
                         // set tapped to true without firing triggers because it may affect propaganda costs
-                        attacker.setTapped(true);
-                        untapFromCancel.add(attacker);
+                        c.setTapped(true);
+                        untapFromCancel.add(c);
                     }
                 }
 
                 // CR 508.1g
-                List<Card> possibleExerters = CombatUtil.getOptionalAttackCostCreatures(combat.getAttackers(), CostExert.class);
+                List<Card> possibleExerters = CombatUtil.getOptionalAttackCostCreatures(myAttackers, CostExert.class);
                 if (!possibleExerters.isEmpty()) {
                     possibleExerters = whoDeclares.getController().exertAttackers(possibleExerters);
                 }
 
-                List<Card> possibleEnlisters = CombatUtil.getOptionalAttackCostCreatures(combat.getAttackers(), CostEnlist.class);
+                List<Card> possibleEnlisters = CombatUtil.getOptionalAttackCostCreatures(myAttackers, CostEnlist.class);
                 if (!possibleEnlisters.isEmpty()) {
                     // TODO might want to skip if can't be paid
                     possibleEnlisters = whoDeclares.getController().enlistAttackers(possibleEnlisters);
                     possibleExerters.addAll(possibleEnlisters);
                 }
 
-                for (final Card attacker : combat.getAttackers()) {
+                for (final Card c : myAttackers) {
                     // TODO currently doesn't refund previous attackers (can really only happen if you cancel paying for a creature with an attack requirement that could be satisfied without a tax)
-                    final boolean canAttack = CombatUtil.checkPropagandaEffects(game, attacker, combat, possibleExerters);
+                    final boolean canAttack = CombatUtil.checkPropagandaEffects(game, c, combat, possibleExerters);
 
                     if (!canAttack) {
-                        combat.removeFromCombat(attacker);
-                        if (untapFromCancel.contains(attacker)) {
-                            attacker.setTapped(false);
+                        combat.removeFromCombat(c);
+                        if (untapFromCancel.contains(c)) {
+                            c.setTapped(false);
                         }
                         success = CombatUtil.validateAttackers(combat);
                         if (!success) {
-                            for (Card c : untapFromCancel) {
-                                c.setTapped(false);
+                            for (Card u : untapFromCancel) {
+                                u.setTapped(false);
                             }
                             // might have been sacrificed while paying
                             combat.removeAbsentCombatants();
@@ -630,23 +637,23 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                     }
                 }
             } while (!success);
-
-            CardCollection tapped = new CardCollection();
-            for (final Card attacker : combat.getAttackers()) {
-                if (!attacker.attackVigilance()) {
-                    attacker.setTapped(false);
-                    if (attacker.tap(true, true, null, null)) tapped.add(attacker);
-                }
-            }
-            if (!tapped.isEmpty()) {
-                final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
-                runParams.put(AbilityKey.Cards, tapped);
-                whoDeclares.getGame().getTriggerHandler().runTrigger(TriggerType.TapAll, runParams, false);
-            }
         }
 
         if (game.isGameOver()) { // they just like to close window at any moment
             return;
+        }
+
+        CardCollection tapped = new CardCollection();
+        for (final Card attackerCard : combat.getAttackers()) {
+            if (!attackerCard.attackVigilance()) {
+                attackerCard.setTapped(false);
+                if (attackerCard.tap(true, true, null, null)) tapped.add(attackerCard);
+            }
+        }
+        if (!tapped.isEmpty()) {
+            final Map<AbilityKey, Object> runParams = AbilityKey.newMap();
+            runParams.put(AbilityKey.Cards, tapped);
+            game.getTriggerHandler().runTrigger(TriggerType.TapAll, runParams, false);
         }
 
         // Reset all active Triggers
@@ -695,7 +702,9 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
             p = game.getNextPlayerAfter(p);
             // Apply Odric's effect here
             Player whoDeclaresBlockers = Objects.requireNonNullElse(p.getDeclaresBlockers(), p);
-            if (combat.isPlayerAttacked(p)) {
+            // CR 810: either defending teammate's creatures may block an attacker aimed at either of
+            // them, so ask p to declare blockers whenever their team (not just p individually) was attacked.
+            if (combat.isPlayerAttacked(p) || p.getTeamMates(false).anyMatch(combat::isPlayerAttacked)) {
                 if (CombatUtil.canBlock(p, combat)) {
                     // Replacement effects (for Camouflage)
                     final Map<AbilityKey, Object> repRunParams = AbilityKey.mapFromAffected(p);

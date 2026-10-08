@@ -522,9 +522,10 @@ public class CombatUtil {
                 return false;
             }
 
-            // Rule 802.4a: A player can block only creatures attacking him/her or a planeswalker he/she controls
+            // Rule 802.4a: A player can block only creatures attacking him/her or a planeswalker he/she controls.
+            // CR 810: in Two-Headed Giant, either defending teammate may block creatures attacking their team.
             Player attacked = combat.getDefendingPlayerRelatedTo(attacker);
-            if (attacked != null && attacked != defendingPlayer) {
+            if (attacked != null && attacked != defendingPlayer && !attacked.sameTeam(defendingPlayer)) {
                 return false;
             }
         }
