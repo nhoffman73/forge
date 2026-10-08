@@ -70,12 +70,17 @@ public class Untap extends Phase {
     public void executeAt() {
         super.executeAt();
 
-        doPhasing(game.getPhaseHandler().getPlayerTurn());
+        // CR 805.4: during a shared team turn, every active teammate untaps/phases their own permanents.
+        for (final Player active : game.getPhaseHandler().getPlayersSharingTurn()) {
+            doPhasing(active);
+        }
         doDayTime(game.getPhaseHandler().getPreviousPlayerTurn());
 
         game.getAction().checkStaticAbilities();
 
-        doUntap();
+        for (final Player active : game.getPhaseHandler().getPlayersSharingTurn()) {
+            doUntap(active);
+        }
     }
 
     /**
@@ -83,8 +88,7 @@ public class Untap extends Phase {
      * doUntap.
      * </p>
      */
-    private void doUntap() {
-        final Player active = game.getPhaseHandler().getPlayerTurn();
+    private void doUntap(final Player active) {
         Map<Player, CardCollection> untapMap = Maps.newHashMap();
 
         CardCollection untapList = new CardCollection(active.getCardsIn(ZoneType.Battlefield));
