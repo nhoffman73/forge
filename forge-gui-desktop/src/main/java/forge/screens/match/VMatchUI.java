@@ -212,6 +212,13 @@ public class VMatchUI implements IVTopLevelUI {
             assignExtraFieldsToCells();
         }
 
+        // Hotseat/2HG: when every seat is a local human, each hand beyond the first would
+        // otherwise fall back into sharing a tab with that same player's own battlefield cell
+        // (see the loop below) - carve each one its own dedicated cell instead.
+        if (lstHands.size() > 1 && lstHands.size() == lstFields.size()) {
+            assignHandsToOwnCells();
+        }
+
         // Determine (an) existing hand panel
         DragCell cellWithHands = null;
         DragCell cellWithHandsFallback = null;
@@ -364,6 +371,60 @@ public class VMatchUI implements IVTopLevelUI {
         if (splitMode || rearrangedRows) {
             SResizingUtil.resizeWindow();
         }
+    }
+
+    /**
+     * Gives each local player beyond the first (index 0, which already has its own HAND_0
+     * cell from the default layout) a dedicated cell for their hand, carved out of their own
+     * battlefield cell. Without this, a second local hand (hotseat, e.g. Two-Headed Giant with
+     * two human teammates on one machine) ends up tabbed together with that same player's own
+     * field in one cell, forcing them to click back and forth between their own board and their
+     * own hand just to play - this mirrors the existing FIELD_0/HAND_0 split so both players get
+     * the same always-visible layout.
+     */
+    private void assignHandsToOwnCells() {
+        for (int i = 1; i < EDocID.Hands.length && i < lstHands.size(); i++) {
+            final EDocID handId = EDocID.Hands[i];
+            VHand myVHand = null;
+            for (final VHand vHand : lstHands) {
+                if (handId.equals(vHand.getDocumentID())) {
+                    myVHand = vHand;
+                    break;
+                }
+            }
+            if (myVHand == null) {
+                continue;
+            }
+
+            final DragCell existingHandCell = handId.getDoc().getParentCell();
+            if (existingHandCell != null && existingHandCell.isShowing() && existingHandCell.getDocs().size() == 1) {
+                continue; // already has its own dedicated cell from a previous populate() pass
+            }
+
+            if (i >= EDocID.Fields.length) {
+                continue;
+            }
+            final DragCell fieldCell = EDocID.Fields[i].getDoc().getParentCell();
+            if (fieldCell == null || !fieldCell.isShowing()) {
+                continue; // nothing sensible to carve a cell out of
+            }
+
+            final RectangleOfDouble rb = fieldCell.getRoughBounds();
+            // Mirror the default layout's FIELD_0/HAND_0 height split (see res/defaults/match.xml:
+            // field h=0.368, hand h=0.268 of their shared 0.636 -> ~42.1% to the hand) so this looks
+            // consistent with the primary player's own row.
+            final double handH = rb.getH() * 0.421;
+            final double fieldH = rb.getH() - handH;
+
+            fieldCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), rb.getW(), fieldH));
+
+            final DragCell newHandCell = new DragCell();
+            newHandCell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY() + fieldH, rb.getW(), handH));
+            FView.SINGLETON_INSTANCE.addDragCell(newHandCell);
+            newHandCell.addDoc(myVHand);
+            dynamicCells.add(newHandCell);
+        }
+        SResizingUtil.resizeWindow();
     }
 
     /**
