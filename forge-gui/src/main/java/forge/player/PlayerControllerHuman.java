@@ -1735,9 +1735,11 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
             // prevent the game jumping ahead too quick
             int delay = 0;
             if (stack.isEmpty()) {
-                // make sure to briefly pause at phases you're not set up to skip
-                if (!isUiSetToSkipPhase(getGame().getPhaseHandler().getPlayerTurn().getView(),
-                        getGame().getPhaseHandler().getPhase())
+                // make sure to briefly pause at phases you're not set up to skip - same
+                // own-row-when-sharing-the-turn logic as skipsPromptForStackOrPhase() above.
+                final PlayerView delayTurnPlayer = getGame().getPhaseHandler().isPlayerTurn(getPlayer())
+                        ? getLocalPlayerView() : getGame().getPhaseHandler().getPlayerTurn().getView();
+                if (!isUiSetToSkipPhase(delayTurnPlayer, getGame().getPhaseHandler().getPhase())
                         && !yieldController.getBoolPref(FPref.YIELD_SKIP_PHASE_DELAY)) {
                     delay = FControlGamePlayback.phasesDelay;
                 }
@@ -3856,9 +3858,17 @@ public class PlayerControllerHuman extends PlayerController implements IGameCont
         if (gameView == null) return false;
         final StackItemView top = gameView.peekStack();
         if (top != null) return !isMacroActive() && top.isAbility() && shouldAutoYield(top.getKey());
-        final PlayerView turnPlayer = gameView.getPlayerTurn();
         final PhaseType phase = gameView.getPhase();
-        return turnPlayer != null && phase != null && isUiSetToSkipPhase(turnPlayer, phase);
+        if (phase == null) return false;
+        // 810: during a Two-Headed Giant shared team turn, both teammates are "the turn player" but
+        // gameView.getPlayerTurn() only ever reflects the primary one - so a non-primary teammate's
+        // own phase-indicator row (their own "pause here" preference) was never actually consulted,
+        // only their primary teammate's. Use this player's own row whenever they're sharing the
+        // active turn; otherwise (a genuine opponent turn) keep checking the active player's row,
+        // same as it's always been.
+        final PlayerView turnPlayer = getGame().getPhaseHandler().isPlayerTurn(getPlayer())
+                ? getLocalPlayerView() : gameView.getPlayerTurn();
+        return turnPlayer != null && isUiSetToSkipPhase(turnPlayer, phase);
     }
 
     public void autoPassUntilEndOfTurn() {

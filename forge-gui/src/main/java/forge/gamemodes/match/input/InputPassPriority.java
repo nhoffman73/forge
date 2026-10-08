@@ -203,8 +203,13 @@ public class InputPassPriority extends InputSyncronizedBase {
         if (gv == null || pv == null) return false;
         FCollectionView<StackItemView> stack = gv.getStack();
         if (stack != null && !stack.isEmpty()) return false;
+        // 810: gv.getPlayerTurn() only ever reflects the primary of a Two-Headed Giant shared team
+        // turn - check isPlayerTurn() too so a non-primary teammate's own turn is also recognized
+        // as "my own turn" here, not just an opponent's.
         PlayerView currentTurn = gv.getPlayerTurn();
-        if (currentTurn != null && currentTurn.equals(pv)) {
+        boolean isOwnTurn = (currentTurn != null && currentTurn.equals(pv))
+                || getController().getGame().getPhaseHandler().isPlayerTurn(getController().getPlayer());
+        if (isOwnTurn) {
             // Always suppress on player's first turn (no lands/mana yet)
             if (gv.getTurn() <= gv.getPlayers().size()) return false;
             if (getController().getYieldController().getBoolPref(FPref.YIELD_SUPPRESS_ON_OWN_TURN)) return false;
