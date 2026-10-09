@@ -287,7 +287,15 @@ public class VMatchUI implements IVTopLevelUI {
         SwingUtilities.invokeLater(() -> {
             for (final DragCell c : FView.SINGLETON_INSTANCE.getDragCells()) {
                 if (c.getDocs().isEmpty()) {
-                    SRearrangingUtil.fillGap(c);
+                    // An empty cell whose old bounds no longer border any live neighbor (e.g. a
+                    // stale cell left over from a layout change) has no seam for fillGap() to find
+                    // and throws rather than leaving a visible gap - don't let that take down the
+                    // whole match screen, just drop the cell and move on.
+                    try {
+                        SRearrangingUtil.fillGap(c);
+                    } catch (final UnsupportedOperationException e) {
+                        e.printStackTrace();
+                    }
                     FView.SINGLETON_INSTANCE.removeDragCell(c);
                 }
             }
@@ -437,8 +445,21 @@ public class VMatchUI implements IVTopLevelUI {
             final DragCell c = f.getParentCell();
             if (c != null) {
                 c.removeDoc(f);
-                if (c.getDocs().isEmpty() && dynamicCells.remove(c)) {
+                // rowA/rowB themselves go empty here too (their one doc was just pulled) but get
+                // reused as-is by splitRowBetween() below - only a *different*, now-orphaned cell
+                // (e.g. one loaded from a saved layout file, never tracked in dynamicCells) needs
+                // cleanup. Must fillGap() here, while its geometry still borders live neighbors -
+                // left for the generic deferred sweep in populate() to find later, its bounds no
+                // longer match anything (rowA/rowB get resized first) and fillGap throws instead
+                // of finding a seam, which is the crash a real playtest hit on game start.
+                if (c.getDocs().isEmpty() && c != rowA && c != rowB) {
+                    try {
+                        SRearrangingUtil.fillGap(c);
+                    } catch (final UnsupportedOperationException e) {
+                        e.printStackTrace();
+                    }
                     FView.SINGLETON_INSTANCE.removeDragCell(c);
+                    dynamicCells.remove(c);
                 }
             }
         }
