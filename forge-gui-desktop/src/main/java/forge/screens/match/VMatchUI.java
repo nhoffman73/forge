@@ -210,6 +210,11 @@ public class VMatchUI implements IVTopLevelUI {
 
         if (sortFieldsEnabled) {
             assignExtraFieldsToCells();
+        } else if (lstFields.size() == 4) {
+            // 2HG hotseat: the generic "extra players" fallback above pairs seats by alternation
+            // (0+2, 1+3), which groups opponents together, not teammates - each team's two fields
+            // need to share one row instead, like Magic Duels' 2HG layout.
+            assignFieldsToTeamRows();
         }
 
         // Determine (an) existing hand panel
@@ -374,6 +379,89 @@ public class VMatchUI implements IVTopLevelUI {
         if (splitMode || rearrangedRows) {
             SResizingUtil.resizeWindow();
         }
+    }
+
+    /**
+     * Groups exactly-four fields into two team rows (two side by side per row) instead of the
+     * generic alternating-seat tabbing the fallback placement loop above would otherwise produce.
+     * Driven entirely by {@link PlayerView#isTeammateOf}, not any particular GameType, so it's a
+     * no-op whenever players aren't actually grouped into two teams of two (team numbers default
+     * to distinct values outside team games, making isTeammateOf always false).
+     */
+    private void assignFieldsToTeamRows() {
+        final VField a0 = lstFields.get(0);
+        VField a1 = null;
+        for (int i = 1; i < lstFields.size(); i++) {
+            if (a0.getPlayer().isTeammateOf(lstFields.get(i).getPlayer())) {
+                a1 = lstFields.get(i);
+                break;
+            }
+        }
+        if (a1 == null) {
+            return; // not a 2-teams-of-2 game - leave the generic fallback placement alone
+        }
+        VField b0 = null, b1 = null;
+        for (final VField f : lstFields) {
+            if (f == a0 || f == a1) {
+                continue;
+            }
+            if (b0 == null) {
+                b0 = f;
+            } else if (b1 == null && b0.getPlayer().isTeammateOf(f.getPlayer())) {
+                b1 = f;
+            }
+        }
+        if (b1 == null) {
+            return; // the other two aren't a team pair either - don't guess, leave it alone
+        }
+
+        final DragCell cellA0 = a0.getParentCell();
+        final DragCell cellA1 = a1.getParentCell();
+        final DragCell cellB0 = b0.getParentCell();
+        final DragCell cellB1 = b1.getParentCell();
+        final boolean alreadyArranged = cellA0 != null && cellA0.isShowing() && cellA0 == cellA1
+                && cellB0 != null && cellB0.isShowing() && cellB0 == cellB1 && cellA0 != cellB0;
+        if (alreadyArranged) {
+            return;
+        }
+
+        DragCell rowA = (cellA0 != null && cellA0.isShowing()) ? cellA0
+                : (cellA1 != null && cellA1.isShowing()) ? cellA1 : null;
+        DragCell rowB = (cellB0 != null && cellB0.isShowing() && cellB0 != rowA) ? cellB0
+                : (cellB1 != null && cellB1.isShowing() && cellB1 != rowA) ? cellB1 : null;
+        if (rowA == null || rowB == null) {
+            return; // nothing sensible to rearrange yet (e.g. mid-initial-layout)
+        }
+
+        for (final VField f : new VField[]{a0, a1, b0, b1}) {
+            final DragCell c = f.getParentCell();
+            if (c != null) {
+                c.removeDoc(f);
+                if (c.getDocs().isEmpty() && dynamicCells.remove(c)) {
+                    FView.SINGLETON_INSTANCE.removeDragCell(c);
+                }
+            }
+        }
+
+        splitRowBetween(rowA, a0, a1);
+        splitRowBetween(rowB, b0, b1);
+
+        SResizingUtil.resizeWindow();
+    }
+
+    /** Splits a cell's current region in half horizontally between two docs. */
+    private void splitRowBetween(final DragCell cell, final VField left, final VField right) {
+        final RectangleOfDouble rb = cell.getRoughBounds();
+        final double halfW = rb.getW() / 2;
+
+        cell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), halfW, rb.getH()));
+        cell.addDoc(left);
+
+        final DragCell newCell = new DragCell();
+        newCell.setRoughBounds(new RectangleOfDouble(rb.getX() + halfW, rb.getY(), rb.getW() - halfW, rb.getH()));
+        FView.SINGLETON_INSTANCE.addDragCell(newCell);
+        newCell.addDoc(right);
+        dynamicCells.add(newCell);
     }
 
     /**

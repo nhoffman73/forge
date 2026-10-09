@@ -200,6 +200,10 @@ public class VField implements IVDoc<CField> {
         return this.tabletop;
     }
 
+    public PlayerView getPlayer() {
+        return this.player;
+    }
+
     public JPanel getAvatarArea() {
         return this.avatarArea;
     }
