@@ -212,15 +212,6 @@ public class VMatchUI implements IVTopLevelUI {
             assignExtraFieldsToCells();
         }
 
-        // Hotseat/2HG: whenever this client has more than one hand to show (two or more local
-        // humans sharing the screen - they don't all need to be local; AI opponents never get a
-        // hand doc at all), each hand beyond the first would otherwise fall back into sharing a
-        // tab with that same player's own battlefield cell (see the loop below) - carve each one
-        // its own dedicated cell instead.
-        if (lstHands.size() > 1) {
-            assignHandsToOwnCells();
-        }
-
         // Determine (an) existing hand panel
         DragCell cellWithHands = null;
         DragCell cellWithHandsFallback = null;
@@ -275,6 +266,16 @@ public class VMatchUI implements IVTopLevelUI {
                     }
                 }
             }
+        }
+
+        // Hotseat/2HG: whenever this client has more than one hand to show (two or more local
+        // humans sharing the screen - they don't all need to be local; AI opponents never get a
+        // hand doc at all), each hand beyond the first just got tabbed into that same player's own
+        // battlefield cell by the loop above - carve each one its own dedicated cell instead. Must
+        // run after that loop (not before): a cell created here wouldn't reliably report isShowing()
+        // yet within the same pass, so running first just let the loop above immediately undo it.
+        if (lstHands.size() > 1) {
+            assignHandsToOwnCells();
         }
 
         // Fill in gaps
