@@ -95,6 +95,13 @@ public class VField implements IVDoc<CField> {
 
     private final TabDiffTracker tabDiff = new TabDiffTracker();
 
+    // Magic Duels-style 2HG team rows put each team's two fields side by side, sharing one row -
+    // without this, both fields' avatar/life columns (always drawn on the left by default) end up
+    // clustered together in the middle of the screen instead of at the row's outer edges. Set by
+    // VMatchUI.splitRowBetween() for whichever field lands on the right half of its row; false
+    // (default) keeps the original left-side placement everywhere else.
+    private boolean avatarOnRight = false;
+
 
     //========= Constructor
     /**
@@ -165,10 +172,30 @@ public class VField implements IVDoc<CField> {
         final JPanel pnl = parentCell.getBody();
         pnl.setLayout(new MigLayout("insets 0, gap 0"));
 
-        pnl.add(avatarArea, "w 10%!, h 35%!");
-        pnl.add(phaseIndicator, "w 5%!, h 100%!, span 1 2");
-        pnl.add(scroller, "w 85%!, h 100%!, span 1 2, wrap");
-        pnl.add(detailsPanel, "w 10%!, h 64%!, gapleft 1px");
+        if (avatarOnRight) {
+            pnl.add(scroller, "w 85%!, h 100%!, span 1 2");
+            pnl.add(phaseIndicator, "w 5%!, h 100%!, span 1 2");
+            pnl.add(avatarArea, "w 10%!, h 35%!, wrap");
+            pnl.add(detailsPanel, "w 10%!, h 64%!, gapright 1px");
+        } else {
+            pnl.add(avatarArea, "w 10%!, h 35%!");
+            pnl.add(phaseIndicator, "w 5%!, h 100%!, span 1 2");
+            pnl.add(scroller, "w 85%!, h 100%!, span 1 2, wrap");
+            pnl.add(detailsPanel, "w 10%!, h 64%!, gapleft 1px");
+        }
+    }
+
+    /** Magic Duels-style 2HG team rows: true puts this field's avatar/life/details column on the
+     *  right edge of its row instead of the left, so both teams' avatars land at the row's outer
+     *  edges rather than clustering in the middle. Re-populates immediately if already showing. */
+    public void setAvatarOnRight(final boolean onRight) {
+        if (avatarOnRight == onRight) {
+            return;
+        }
+        avatarOnRight = onRight;
+        if (parentCell != null) {
+            populate();
+        }
     }
 
     @Override

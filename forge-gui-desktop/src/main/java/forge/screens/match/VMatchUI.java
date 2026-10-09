@@ -470,14 +470,18 @@ public class VMatchUI implements IVTopLevelUI {
         SResizingUtil.resizeWindow();
     }
 
-    /** Splits a cell's current region in half horizontally between two docs. */
+    /** Splits a cell's current region in half horizontally between two docs. Magic Duels-style:
+     *  the left doc's avatar/life stays on the left edge, the right doc's moves to the right edge -
+     *  both teams' avatars land at the row's outer edges instead of clustering in the middle. */
     private void splitRowBetween(final DragCell cell, final VField left, final VField right) {
         final RectangleOfDouble rb = cell.getRoughBounds();
         final double halfW = rb.getW() / 2;
 
+        left.setAvatarOnRight(false);
         cell.setRoughBounds(new RectangleOfDouble(rb.getX(), rb.getY(), halfW, rb.getH()));
         cell.addDoc(left);
 
+        right.setAvatarOnRight(true);
         final DragCell newCell = new DragCell();
         newCell.setRoughBounds(new RectangleOfDouble(rb.getX() + halfW, rb.getY(), rb.getW() - halfW, rb.getH()));
         FView.SINGLETON_INSTANCE.addDragCell(newCell);

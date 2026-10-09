@@ -48,12 +48,12 @@ import forge.view.arcane.util.CardPanelMouseListener;
 public class CardArea extends CardPanelContainer implements CardPanelMouseListener {
     private static final long serialVersionUID = -5836122075999621592L;
 
-    public static final int GUTTER_Y = 5;
-    public static final int GUTTER_X = 5;
+    public static final int GUTTER_Y = 3;
+    public static final int GUTTER_X = 3;
     private static final float HORIZ_CARD_SPACING_X = 0.04f;
     private static final float HORIZ_CARD_SPACING_Y = 0.06f;
-    private static final float VERT_CARD_SPACING_X = 0.06f;
-    private static final float VERT_CARD_SPACING_Y = 0.10f;
+    private static final float VERT_CARD_SPACING_X = 0.04f;
+    private static final float VERT_CARD_SPACING_Y = 0.08f;
 
     private float maxCoverage = 0.5f;
     private int maxRows = 0;
