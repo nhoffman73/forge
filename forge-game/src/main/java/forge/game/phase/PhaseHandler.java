@@ -87,10 +87,10 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
 
     private transient Player pPlayerPriority = null;
     private transient Player pFirstPriority = null;
-    // 810 house rule: during a shared 2HG main-phase priority exchange, the teammate who just
-    // passed with nothing to do - null once both teammates have passed back to back (or either
-    // has acted since), see mainLoopStep().
-    private transient Player twoHeadedGiantAwaitingPassFrom = null;
+    // 810 house rule: during a shared 2HG main-phase priority exchange, the teammate who still
+    // owes a reactive pass/action in response to their partner's last successful action this
+    // priority window - null once that reaction has happened, see mainLoopStep().
+    private transient Player twoHeadedGiantOwedReactionFrom = null;
     private transient Combat combat = null;
     private boolean skipDamageSteps = false;
     private boolean bRepeatCleanup = false;
@@ -166,7 +166,7 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     public final void setPriority(final Player p) {
         pFirstPriority = p;
         pPlayerPriority = p;
-        twoHeadedGiantAwaitingPassFrom = null;
+        twoHeadedGiantOwedReactionFrom = null;
     }
     public final void resetPriority() {
         setPriority(playerTurn);
@@ -1113,13 +1113,13 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
     }
 
     public void mainLoopStep() {
+        List<SpellAbility> chosenSa = null;
         if (givePriorityToPlayer) {
             if (DEBUG_PHASES) {
                 sw.start();
             }
 
             game.fireEvent(new GameEventPlayerPriority(PlayerView.get(playerTurn), phase, PlayerView.get(getPriorityPlayer())));
-            List<SpellAbility> chosenSa = null;
 
             int loopCount = 0;
             do {
@@ -1139,35 +1139,8 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                     pFirstPriority = pPlayerPriority;
                 }
 
-                // 810 house rule: during a shared 2HG main phase with an empty stack, land plays and
-                // sorcery-speed spells shouldn't queue behind a formal pass the way CR 117.3c normally
-                // requires - that's what made it feel like "I do everything, then my teammate goes"
-                // instead of simultaneous. Only the two active teammates are involved here (checked via
-                // getPlayersSharingTurn(), already team-aware); the opposing team's own priority windows
-                // during this phase are untouched. Bypasses the generic ring-walk entirely for the
-                // hand-off, rather than just breaking out to it: that ring only ever moves forward by
-                // seat, so if this teammate is the second of the pair to act (because the first had
-                // nothing to do and passed), "next in the ring" is the opposing team, not back to the
-                // first teammate - exactly the bug a real playtest caught.
-                final boolean twoHgInterleave = game.getRules().isTwoHeadedGiant() && phase.isMain()
-                        && game.getStack().isEmpty() && getPlayersSharingTurn().contains(pPlayerPriority);
-
                 if (chosenSa == null) {
                     // that means 'I pass'
-                    if (twoHgInterleave) {
-                        final Player teammate = teammateSharingTurn(pPlayerPriority);
-                        if (teammate != null && twoHeadedGiantAwaitingPassFrom != teammate) {
-                            // teammate hasn't had their own chance to also find nothing to do yet -
-                            // ask them before conceding the floor to the opposing team.
-                            twoHeadedGiantAwaitingPassFrom = pPlayerPriority;
-                            pPlayerPriority = teammate;
-                            loopCount++;
-                            continue;
-                        }
-                        // teammate already passed right before this with nothing to do either -
-                        // both are genuinely done; fall through to normal pass handling below.
-                        twoHeadedGiantAwaitingPassFrom = null;
-                    }
                     break;
                 }
                 if (DEBUG_PHASES) {
@@ -1204,13 +1177,18 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                 }
                 loopCount++;
 
-                if (!rollback && twoHgInterleave) {
-                    final Player teammate = teammateSharingTurn(pPlayerPriority);
-                    if (teammate != null) {
-                        twoHeadedGiantAwaitingPassFrom = null; // a fresh action resets the both-passed tracker
-                        pPlayerPriority = teammate;
-                        continue;
-                    }
+                // 810 house rule: during a shared 2HG main phase with an empty stack, land plays and
+                // sorcery-speed spells shouldn't queue behind a formal pass the way CR 117.3c normally
+                // requires - that's what made it feel like "I do everything, then my teammate goes"
+                // instead of simultaneous. Hand off after a single action instead of letting this
+                // player keep acting; who gets asked next (their teammate, per the house rule, before
+                // the opposing team) is decided below, after this do-while loop, alongside the normal
+                // next-player computation - not here, so every hand-off still goes through this
+                // method's usual per-player bookkeeping (priority-change GUI event, hasPriority sync)
+                // instead of looping internally and leaving the GUI's prompt stuck on a stale player,
+                // which is exactly what an earlier, more tightly-looped version of this fix did.
+                if (!rollback && game.getRules().isTwoHeadedGiant() && phase.isMain() && game.getStack().isEmpty()) {
+                    break;
                 }
             } while (loopCount < 999 || !pPlayerPriority.getController().isAI());
 
@@ -1229,7 +1207,7 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
             System.out.print(" >> (no priority given to " + getPriorityPlayer() + ")\n");
         }
 
-        Player nextPlayer = game.getNextPlayerAfter(getPriorityPlayer());
+        Player nextPlayer = computeNextPriorityPlayer(chosenSa);
 
         if (game.isGameOver() || nextPlayer == null) {
             // conceded?
@@ -1270,6 +1248,39 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
         for (final Player p : game.getPlayers()) {
             p.setHasPriority(getPriorityPlayer() == p);
         }
+    }
+
+    /** 810 house rule: who gets priority after {@code pPlayerPriority}, during a shared 2HG main
+     *  phase with an empty stack. Plain seat order alone can't do this correctly - it only happens
+     *  to send priority to the teammate when the player who just acted/passed is the first of the
+     *  pair in seat order; when it's the second, plain seat order jumps straight to the opposing
+     *  team, skipping the other teammate's reactive chance entirely (the bug an earlier real
+     *  playtest caught). Outside that situation this is exactly {@code game.getNextPlayerAfter(...)}. */
+    private Player computeNextPriorityPlayer(final List<SpellAbility> chosenSa) {
+        final boolean sharesTurn = game.getRules().isTwoHeadedGiant() && phase.isMain()
+                && game.getStack().isEmpty() && getPlayersSharingTurn().contains(pPlayerPriority);
+
+        if (sharesTurn && chosenSa != null) {
+            // pPlayerPriority just acted - their teammate now owes a reaction before the opposing
+            // team may get priority.
+            final Player teammate = teammateSharingTurn(pPlayerPriority);
+            if (teammate != null) {
+                twoHeadedGiantOwedReactionFrom = teammate;
+                return teammate;
+            }
+        } else if (sharesTurn && pPlayerPriority.equals(twoHeadedGiantOwedReactionFrom)) {
+            // this pass fulfills the reaction owed to the teammate's last action - both teammates
+            // are now genuinely done. Skip past the whole team (not just one seat, which could
+            // land back on the teammate who just acted if this player is seated right after them)
+            // to reach the opposing team.
+            twoHeadedGiantOwedReactionFrom = null;
+            Player candidate = game.getNextPlayerAfter(getPriorityPlayer());
+            while (candidate != null && getPlayersSharingTurn().contains(candidate)) {
+                candidate = game.getNextPlayerAfter(candidate);
+            }
+            return candidate;
+        }
+        return game.getNextPlayerAfter(getPriorityPlayer());
     }
 
     private boolean checkStateBasedEffects() {
