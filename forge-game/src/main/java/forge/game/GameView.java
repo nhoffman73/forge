@@ -49,6 +49,7 @@ public class GameView extends TrackableObject {
         set(TrackableProperty.IsCommander, rules.hasCommander());
         set(TrackableProperty.GameType, rules.getGameType());
         set(TrackableProperty.PoisonCountersToLose, rules.getPoisonCountersToLose());
+        set(TrackableProperty.IsTwoHeadedGiant, rules.isTwoHeadedGiant());
         set(TrackableProperty.NumGamesInMatch, rules.getGamesPerMatch());
 
         set(TrackableProperty.NumPlayedGamesInMatch, game.getMatch().getOutcomes().size());
@@ -83,6 +84,11 @@ public class GameView extends TrackableObject {
 
     public int getPoisonCountersToLose() {
         return get(TrackableProperty.PoisonCountersToLose);
+    }
+
+    /** 810: life and poison are pooled per team, so the UI shows team totals rather than per-player ones. */
+    public boolean isTwoHeadedGiant() {
+        return get(TrackableProperty.IsTwoHeadedGiant);
     }
 
     public int getNumGamesInMatch() {

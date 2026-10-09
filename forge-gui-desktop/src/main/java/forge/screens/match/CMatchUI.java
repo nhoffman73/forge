@@ -630,8 +630,26 @@ public final class CMatchUI
     // Player's lives and poison counters
     @Override
     public void updateLives(final Iterable<PlayerView> livesUpdate) {
+        // 2HG avatars show team poison, so a change to one player's counters is a change to
+        // their teammate's display too
+        final boolean twoHeadedGiant = getGameView() != null && getGameView().isTwoHeadedGiant();
+        final Set<PlayerView> toUpdate = new LinkedHashSet<>();
         for (final PlayerView p : livesUpdate) {
+            toUpdate.add(p);
+            if (twoHeadedGiant) {
+                toUpdate.addAll(p.getTeamMates());
+            }
+        }
+        for (final PlayerView p : toUpdate) {
             getFieldViewFor(p).updateDetails();
+        }
+        // priority changes only report the new holder - re-frame everyone so the previous
+        // holder's 2HG "active" frame clears as well (no-op outside 2HG team rows)
+        for (final VField f : getFieldViews()) {
+            f.updateTeamFrame();
+        }
+        for (final VHand h : getHandViews()) {
+            h.updateTeamFrame();
         }
     }
 

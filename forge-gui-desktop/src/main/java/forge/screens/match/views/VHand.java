@@ -43,6 +43,7 @@ public class VHand implements IVDoc<CHand> {
     private final EDocID docID;
     private final DragTab tab = new DragTab(Localizer.getInstance().getMessage("lblYourHand"));
     private final PlayerView player;
+    private final CMatchUI matchUI;
     private final TabDiffTracker tabDiff = new TabDiffTracker();
 
     // Top-level containers
@@ -57,6 +58,7 @@ public class VHand implements IVDoc<CHand> {
      * @param p &emsp; {@link forge.game.player.Player}
      */
     public VHand(final CMatchUI matchUI, final EDocID id0, final PlayerView p) {
+        this.matchUI = matchUI;
         this.hand = new HandArea(matchUI, scroller);
         this.player = p;
         docID = id0;
@@ -86,6 +88,20 @@ public class VHand implements IVDoc<CHand> {
         pnl.setLayout(new MigLayout("insets 0, gap 0"));
 
         pnl.add(scroller, "w 100%, h 100%!");
+        updateTeamFrame();
+    }
+
+    /** 2HG: frames this hand like its owner's field (team color, gold while they hold priority),
+     *  so with two hands side by side it's clear whose turn to act it is. No-op outside team rows. */
+    public void updateTeamFrame() {
+        if (parentCell == null || player == null) {
+            return;
+        }
+        final VField field = matchUI.getFieldViewFor(player);
+        if (field == null || field.getTeamColor() == null) {
+            return;
+        }
+        parentCell.getBody().setBorder(VField.teamFrame(field.getTeamColor(), player.getHasPriority(), -1));
     }
 
     /* (non-Javadoc)

@@ -235,7 +235,9 @@ public class FControlGameEventHandler extends IGameEventVisitor.Base<Void> {
     public Void visit(final GameEventPlayerPriority event) {
         needCombatUpdate = true;
         matchController.updateDependencies();
-        return processEvent();
+        // the player's hasPriority flag is part of their displayed details (desktop's 2HG
+        // active-player frame reads it), so refresh them like any other player stat change
+        return processPlayer(event.priority(), livesUpdate);
     }
 
     @Override

@@ -253,6 +253,7 @@ public enum TrackableProperty {
     StormCount(TrackableTypes.IntegerType),
     GameOver(TrackableTypes.BooleanType),
     PoisonCountersToLose(TrackableTypes.IntegerType),
+    IsTwoHeadedGiant(TrackableTypes.BooleanType),
     PlayerTurn(TrackableTypes.PlayerViewType, FreezeMode.IgnoresFreeze),
     Phase(TrackableTypes.EnumType(PhaseType.class), FreezeMode.IgnoresFreeze),
     Object(TrackableTypes.ObjectType, FreezeMode.IgnoresFreeze),

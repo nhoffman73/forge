@@ -1,5 +1,6 @@
 package forge.screens.match;
 
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,6 +36,10 @@ import forge.view.FView;
  * <br><br><i>(V at beginning of class name denotes a view class.)</i>
  */
 public class VMatchUI implements IVTopLevelUI {
+    // 2HG team row colors: the local player's team, and the opposing team
+    private static final Color TEAM_COLOR_NEAR = new Color(70, 130, 220);
+    private static final Color TEAM_COLOR_FAR = new Color(205, 75, 60);
+
     private List<VField> lstFields = new ArrayList<>();
     private List<VHand> lstHands = new ArrayList<>();
 
@@ -422,6 +427,16 @@ public class VMatchUI implements IVTopLevelUI {
         if (b1 == null) {
             return; // the other two aren't a team pair either - don't guess, leave it alone
         }
+
+        // fields are in seat order here (2HG keeps lobby seating), so the local team isn't
+        // necessarily row A - give the "friendly" color to whichever team has a local player
+        final boolean aIsLocal = control.isLocalPlayer(a0.getPlayer()) || control.isLocalPlayer(a1.getPlayer());
+        final Color colorA = aIsLocal ? TEAM_COLOR_NEAR : TEAM_COLOR_FAR;
+        final Color colorB = aIsLocal ? TEAM_COLOR_FAR : TEAM_COLOR_NEAR;
+        a0.setTeamColor(colorA);
+        a1.setTeamColor(colorA);
+        b0.setTeamColor(colorB);
+        b1.setTeamColor(colorB);
 
         final DragCell cellA0 = a0.getParentCell();
         final DragCell cellA1 = a1.getParentCell();

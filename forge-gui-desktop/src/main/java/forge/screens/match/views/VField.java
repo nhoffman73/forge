@@ -19,6 +19,7 @@ package forge.screens.match.views;
 
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
@@ -26,10 +27,12 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.border.Border;
 import javax.swing.border.LineBorder;
+import javax.swing.border.MatteBorder;
 
 import forge.deck.CommanderBracketCalculator;
 import forge.deck.Deck;
 import forge.game.GameType;
+import forge.game.GameView;
 import forge.game.card.CounterEnumType;
 import forge.game.player.PlayerView;
 import forge.game.zone.ZoneType;
@@ -59,6 +62,7 @@ import net.miginfocom.swing.MigLayout;
 public class VField implements IVDoc<CField> {
     private final static int LIFE_CRITICAL = 5;
     private final static int POISON_CRITICAL = 8;
+    private final static int TEAM_POISON_CRITICAL = 12; // 2HG: same margin as 8 of 10, scaled to 15
 
     // Fields used with interface IVDoc
     private final CField control;
@@ -102,6 +106,14 @@ public class VField implements IVDoc<CField> {
     // (default) keeps the original left-side placement everywhere else.
     private boolean avatarOnRight = false;
 
+    // 2HG team framing, set by VMatchUI.assignFieldsToTeamRows(): a frame in the team's color around
+    // the field (open on the side facing the teammate, so a row's two halves read as one unit), a
+    // faint matching tint behind the battlefield, and a closed gold frame instead while this player
+    // holds priority. Null (the default) leaves the field undecorated, as in every other game.
+    public static final Color ACTIVE_FRAME_COLOR = new Color(240, 190, 40);
+    private Color teamColor = null;
+    private Color teamTint = null;
+
 
     //========= Constructor
     /**
@@ -122,7 +134,16 @@ public class VField implements IVDoc<CField> {
 
         // TODO player is hard-coded into tabletop...should be dynamic
         // (haven't looked into it too deeply). Doublestrike 12-04-12
-        tabletop = new PlayArea(matchUI, scroller, mirror, player, ZoneType.Battlefield);
+        tabletop = new PlayArea(matchUI, scroller, mirror, player, ZoneType.Battlefield) {
+            @Override
+            protected void paintComponent(final Graphics g) {
+                if (teamTint != null) {
+                    g.setColor(teamTint);
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                }
+                super.paintComponent(g);
+            }
+        };
 
         control = new CField(matchUI, player, this);
 
@@ -183,6 +204,7 @@ public class VField implements IVDoc<CField> {
             pnl.add(scroller, "w 85%!, h 100%!, span 1 2, wrap");
             pnl.add(detailsPanel, "w 10%!, h 64%!, gapleft 1px");
         }
+        updateTeamFrame();
     }
 
     /** Magic Duels-style 2HG team rows: true puts this field's avatar/life/details column on the
@@ -196,6 +218,36 @@ public class VField implements IVDoc<CField> {
         if (parentCell != null) {
             populate();
         }
+    }
+
+    public void setTeamColor(final Color color) {
+        teamColor = color;
+        teamTint = color == null ? null : new Color(color.getRed(), color.getGreen(), color.getBlue(), 28);
+        tabletop.repaint();
+        updateTeamFrame();
+    }
+
+    public Color getTeamColor() {
+        return teamColor;
+    }
+
+    /** Redraws the team frame, gold while this player holds priority. */
+    public void updateTeamFrame() {
+        if (teamColor == null || parentCell == null) {
+            return;
+        }
+        parentCell.getBody().setBorder(teamFrame(teamColor, player.getHasPriority(),
+                avatarOnRight ? SwingConstants.LEFT : SwingConstants.RIGHT));
+    }
+
+    /** Team-colored frame with {@code openSide} (LEFT/RIGHT, or anything else for none) left open;
+     *  while {@code active}, a thicker closed gold frame instead so whose action it is stands out. */
+    public static Border teamFrame(final Color team, final boolean active, final int openSide) {
+        if (active) {
+            return new MatteBorder(3, 3, 3, 3, ACTIVE_FRAME_COLOR);
+        }
+        return new MatteBorder(2, openSide == SwingConstants.LEFT ? 0 : 2, 2,
+                openSide == SwingConstants.RIGHT ? 0 : 2, team);
     }
 
     @Override
@@ -367,6 +419,12 @@ public class VField implements IVDoc<CField> {
     }
 
     public void updateDetails() {
+        // 810: life and poison are team resources in 2HG - life is already mirrored onto every
+        // teammate by the engine, but poison stays per player and only the team's combined count
+        // matters, so show that (out of the team threshold) rather than this player's share.
+        final GameView gameView = matchUI == null ? null : matchUI.getGameView();
+        final boolean twoHeadedGiant = gameView != null && gameView.isTwoHeadedGiant();
+
         // Update life total
         final int life = player.getLife();
         lblLife.setText(String.valueOf(life));
@@ -375,9 +433,19 @@ public class VField implements IVDoc<CField> {
         } else {
             lblLife.setForeground(Color.RED);
         }
+        if (twoHeadedGiant && teamColor != null) {
+            // same team-colored box on both teammates' avatars, matching their row's frame
+            lblLife.setBorder(new LineBorder(teamColor, 2));
+            lblLife.setToolTipText(Localizer.getInstance().getMessage("lblSharedTeamLife"));
+        }
 
         // Update poison and/or energy counters, poison counters take precedence
-        final int poison = player.getCounters(CounterEnumType.POISON);
+        int poison = player.getCounters(CounterEnumType.POISON);
+        if (twoHeadedGiant) {
+            for (final PlayerView mate : player.getTeamMates()) {
+                poison += mate.getCounters(CounterEnumType.POISON);
+            }
+        }
         final int energy = player.getCounters(CounterEnumType.ENERGY);
         final int experience = player.getCounters(CounterEnumType.EXPERIENCE);
         final int rad = player.getCounters(CounterEnumType.RAD);
@@ -389,8 +457,8 @@ public class VField implements IVDoc<CField> {
             removeLblRad();
             removeLblTicket();
             addLblPoison();
-            lblPoison.setText(String.valueOf(poison));
-            if (poison < POISON_CRITICAL) {
+            lblPoison.setText(twoHeadedGiant ? poison + "/" + gameView.getPoisonCountersToLose() : String.valueOf(poison));
+            if (poison < (twoHeadedGiant ? TEAM_POISON_CRITICAL : POISON_CRITICAL)) {
                 lblPoison.setForeground(FSkin.getColor(FSkin.Colors.CLR_TEXT));
             } else {
                 lblPoison.setForeground(Color.RED);
@@ -445,6 +513,7 @@ public class VField implements IVDoc<CField> {
         this.avatarArea.setBorder(highlighted ? borderAvatarHighlighted : borderAvatarSimple);
         this.avatarArea.setOpaque(highlighted);
         this.avatarArea.setToolTipText(getPlayerDetailsHtml());
+        updateTeamFrame();
     }
 
     private String getPlayerDetailsHtml() {
