@@ -1159,6 +1159,17 @@ public class PhaseHandler implements java.io.Serializable, IHasForgeLog {
                     game.copyLastState();
                 }
                 loopCount++;
+
+                // 810 house rule: a player normally keeps being re-prompted after acting (CR 117.3c)
+                // until they explicitly pass, which is what made a shared 2HG main phase feel like
+                // "I do everything, then my teammate goes" instead of simultaneous - land plays and
+                // sorcery-speed spells don't need to queue behind a formal pass. Hand priority to the
+                // next player (their teammate, given adjacent seating) after one action instead, so
+                // actions alternate. Only once the stack is non-empty (something actually needs to
+                // resolve) does the normal retains-priority behavior still apply unchanged.
+                if (!rollback && game.getRules().isTwoHeadedGiant() && phase.isMain() && game.getStack().isEmpty()) {
+                    break;
+                }
             } while (loopCount < 999 || !pPlayerPriority.getController().isAI());
 
             if (loopCount >= 999 && pPlayerPriority.getController().isAI()) {
