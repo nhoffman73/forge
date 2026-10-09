@@ -189,6 +189,16 @@ public class HostedMatch {
         }
 
         final FCollectionView<Player> players = game.getPlayers();
+
+        // Must happen before openView()/initial populate() below, not just "sometime before the
+        // game actually starts": the initial layout pass (e.g. VMatchUI.assignFieldsToTeamRows)
+        // reads team membership to decide how to group fields, so it needs this data to already
+        // be there the first time it runs, not just by the time the game is playable.
+        for (final Player p : players) {
+            p.updateOpponentsForView();
+            p.updateTeamMatesForView();
+        }
+
         final String[] avatarIndices = FModel.getPreferences().getPref(FPref.UI_AVATARS).split(",");
         final String[] sleeveIndices = FModel.getPreferences().getPref(FPref.UI_SLEEVES).split(",");
         final GameView gameView = getGameView();
@@ -274,13 +284,7 @@ public class HostedMatch {
             GamePlayerUtil.setPlayerName();
         }
 
-        //ensure opponents set properly
-        for (final Player p : players) {
-            p.updateOpponentsForView();
-            p.updateTeamMatesForView();
-        }
-
-        // It's important to run match in a different thread to allow GUI inputs to be invoked from inside game. 
+        // It's important to run match in a different thread to allow GUI inputs to be invoked from inside game.
         // Game is set on pause while gui player takes decisions
         game.getAction().invoke(() -> {
             // Capture the current game in a local so this lambda keeps operating on the
@@ -459,6 +463,15 @@ public class HostedMatch {
 
             final GameView gameView = event.subgame().getView();
 
+            // Must happen before openView()/initial populate() inside switchGameView below, same
+            // reasoning as the main startGame() path - the initial layout pass reads team
+            // membership, so it needs this data there before it runs, not just before the subgame
+            // is playable.
+            for (final Player p : event.subgame().getPlayers()) {
+                p.updateOpponentsForView();
+                p.updateTeamMatesForView();
+            }
+
             Runnable switchGameView = () -> {
                 for (final Player p : event.subgame().getPlayers()) {
                     if (p.getController() instanceof PlayerControllerHuman humanController) {
@@ -479,12 +492,6 @@ public class HostedMatch {
                 GuiBase.getInterface().invokeInEdtNow(switchGameView);
             else
                 GuiBase.getInterface().invokeInEdtAndWait(switchGameView);
-
-            //ensure opponents set properly
-            for (final Player p : event.subgame().getPlayers()) {
-                p.updateOpponentsForView();
-                p.updateTeamMatesForView();
-            }
 
             return null;
         }
