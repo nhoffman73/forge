@@ -29,6 +29,12 @@ final class TwoHeadedGiantGame {
     final Player teamBPartner;
 
     TwoHeadedGiantGame() {
+        this(false);
+    }
+
+    /** @param commander layer 2HG on Commander instead of plain Constructed (enables the
+     *  commander-damage loss check, 60 starting life) */
+    TwoHeadedGiantGame(final boolean commander) {
         Localizer.getInstance().initialize("en-US", "res/languages/");
         Lang.createInstance("en-US");
 
@@ -43,7 +49,8 @@ final class TwoHeadedGiantGame {
         players.get(3).setTeamNumber(1);
 
         final GameRules rules = new GameRules(GameType.TwoHeadedGiant);
-        rules.setAppliedVariants(Set.of(GameType.TwoHeadedGiant));
+        rules.setAppliedVariants(commander ? Set.of(GameType.TwoHeadedGiant, GameType.Commander)
+                : Set.of(GameType.TwoHeadedGiant));
         rules.setPoisonCountersToLose(15);
 
         game = new Game(players, rules, new Match(rules, players, "Test"));
@@ -52,11 +59,11 @@ final class TwoHeadedGiantGame {
         teamBPrimary = game.getPlayers().get(2);
         teamBPartner = game.getPlayers().get(3);
 
-        // Mirrors what RegisteredPlayer.forVariants would compute (20 * 1.5 = 30) - set directly on
-        // every player rather than relying on mirroring for this initial setup, since mirroring is
-        // for in-game life changes, not establishing the starting total.
+        // Mirrors what RegisteredPlayer.forVariants would compute (20 * 1.5 = 30, or 40 * 1.5 = 60
+        // for Commander) - set directly on every player rather than relying on mirroring for this
+        // initial setup, since mirroring is for in-game life changes, not establishing the starting total.
         for (final Player p : game.getPlayers()) {
-            p.setStartingLife(30);
+            p.setStartingLife(commander ? 60 : 30);
         }
     }
 

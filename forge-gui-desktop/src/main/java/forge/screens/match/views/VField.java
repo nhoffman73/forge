@@ -33,6 +33,7 @@ import forge.deck.CommanderBracketCalculator;
 import forge.deck.Deck;
 import forge.game.GameType;
 import forge.game.GameView;
+import forge.game.card.CardView;
 import forge.game.card.CounterEnumType;
 import forge.game.player.PlayerView;
 import forge.game.zone.ZoneType;
@@ -50,6 +51,7 @@ import forge.toolbox.FSkin.SkinImage;
 import forge.toolbox.FSkin.SkinnedPanel;
 import forge.toolbox.special.PhaseIndicator;
 import forge.toolbox.special.PlayerDetailsPanel;
+import forge.util.CardTranslation;
 import forge.util.Localizer;
 import forge.view.arcane.PlayArea;
 import net.miginfocom.swing.MigLayout;
@@ -517,7 +519,7 @@ public class VField implements IVDoc<CField> {
     }
 
     private String getPlayerDetailsHtml() {
-        final String detailsHtml = player.getDetailsHtml();
+        final String detailsHtml = withTeamCommanderDamage(player.getDetailsHtml());
         final String commanderBracketLine = getCommanderBracketTooltipLine();
         if (commanderBracketLine == null) {
             return detailsHtml;
@@ -533,6 +535,35 @@ public class VField implements IVDoc<CField> {
         return detailsHtml.substring(0, lineIndex)
                 + commanderBracketLine + "<br/>"
                 + detailsHtml.substring(lineIndex);
+    }
+
+    /** 2HG Commander: a team loses to 21 damage from one commander combined across both teammates,
+     *  but the details list only shows each player's own share - append the team totals. */
+    private String withTeamCommanderDamage(final String detailsHtml) {
+        final GameView gameView = matchUI == null ? null : matchUI.getGameView();
+        if (gameView == null || !gameView.isTwoHeadedGiant() || !gameView.isCommander() || !detailsHtml.endsWith("</html>")) {
+            return detailsHtml;
+        }
+        final StringBuilder lines = new StringBuilder();
+        for (final PlayerView opponent : player.getOpponents()) {
+            if (opponent.getCommanders() == null) {
+                continue;
+            }
+            for (final CardView commander : opponent.getCommanders()) {
+                int damage = player.getCommanderDamage(commander);
+                for (final PlayerView mate : player.getTeamMates()) {
+                    damage += mate.getCommanderDamage(commander);
+                }
+                if (damage > 0) {
+                    lines.append(Localizer.getInstance().getMessage("lblTeamCommanderDamage",
+                            CardTranslation.getTranslatedName(commander.getName()), damage)).append("<br/>");
+                }
+            }
+        }
+        if (lines.length() == 0) {
+            return detailsHtml;
+        }
+        return detailsHtml.substring(0, detailsHtml.length() - "</html>".length()) + lines + "</html>";
     }
 
     private String getCommanderBracketTooltipLine() {

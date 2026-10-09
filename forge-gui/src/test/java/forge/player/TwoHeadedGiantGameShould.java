@@ -6,11 +6,13 @@ import forge.game.Game;
 import forge.game.GameRules;
 import forge.game.GameType;
 import forge.game.Match;
+import forge.game.card.Card;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -97,6 +99,35 @@ public class TwoHeadedGiantGameShould {
         assertThat(g.teamAPartner.hasLost()).isFalse();
         assertThat(g.teamBPrimary.hasLost()).isTrue();
         assertThat(g.teamBPartner.hasLost()).isTrue();
+    }
+
+    @Test
+    public void startEachTeamAtOneAndAHalfTimesTheFormatsStartingLife() {
+        // 810.4: 30 on top of Constructed, 60 on top of Commander
+        assertThat(RegisteredPlayer.forVariants(4, Set.of(GameType.TwoHeadedGiant),
+                new Deck(), null, false, null, null).getStartingLife()).isEqualTo(30);
+        assertThat(RegisteredPlayer.forVariants(4, Set.of(GameType.TwoHeadedGiant, GameType.Commander),
+                new Deck(), null, false, null, null).getStartingLife()).isEqualTo(60);
+    }
+
+    @Test
+    public void makeBothTeammatesLoseOnCombinedDamageFromOneCommander() {
+        TwoHeadedGiantGame g = new TwoHeadedGiantGame(true);
+        final Card commander = new Card(g.game.nextCardId(), g.game);
+        g.teamAPrimary.addCommanderDamage(commander, 10);
+        g.teamAPartner.addCommanderDamage(commander, 10);
+
+        g.game.getAction().checkGameOverCondition();
+        assertThat(g.teamAPrimary.hasLost()).isFalse();
+        assertThat(g.teamAPartner.hasLost()).isFalse();
+
+        g.teamAPartner.addCommanderDamage(commander, 1); // combined 10 + 11 = 21
+        g.game.getAction().checkGameOverCondition();
+
+        assertThat(g.teamAPrimary.hasLost()).isTrue();
+        assertThat(g.teamAPartner.hasLost()).isTrue();
+        assertThat(g.teamBPrimary.hasLost()).isFalse();
+        assertThat(g.teamBPartner.hasLost()).isFalse();
     }
 
     @Test

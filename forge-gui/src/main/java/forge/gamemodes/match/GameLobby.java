@@ -241,7 +241,13 @@ public abstract class GameLobby implements IHasGameType {
     }
 
     public void applyVariant(final GameType variant) {
-        setGameType(variant);
+        // The current game type picks which deck panel/choosers the lobby shows. Two-Headed Giant
+        // only changes how the game is played, not what decks are needed, so it must not take
+        // that over - doing so swapped a Commander lobby's commander deck choosers for plain
+        // Constructed ones and left the deck panel blank, making 2HG Commander unselectable.
+        if (variant != GameType.TwoHeadedGiant) {
+            setGameType(variant);
+        }
         data.appliedVariants.add(variant);
 
         //ensure other necessary variants are unchecked
