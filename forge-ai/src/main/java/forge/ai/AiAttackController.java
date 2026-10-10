@@ -127,6 +127,12 @@ public class AiAttackController {
 
     public static List<Card> getOpponentCreatures(final Player defender) {
         List<Card> defenders = defender.getCreaturesInPlay();
+        // CR 810: in 2HG either defending teammate may block any attacker aimed at their team
+        if (defender.getGame().getRules().isTwoHeadedGiant()) {
+            for (final Player mate : defender.getTeamMates(false)) {
+                defenders.addAll(mate.getCreaturesInPlay());
+            }
+        }
         int totalMana = ComputerUtilMana.getAvailableManaEstimate(defender, true);
         int manaReserved = 0; // for paying the cost to transform
         Predicate<Card> canAnimate = c -> !c.isTapped() && !c.isCreature() && !c.isPlaneswalker();
@@ -745,8 +751,10 @@ public class AiAttackController {
             }
         }
 
+        // 2HG: the defending team loses at 15 combined poison, not 10 on this one player
+        final int poisonToKill = ai.getGame().getRules().getPoisonCountersToLose() - ComputerUtilCombat.getTeamPoison(defendingOpponent);
         int totalPoisonDamage = ComputerUtilCombat.sumPoisonIfUnblocked(unblockedAttackers, defendingOpponent);
-        if (totalPoisonDamage >= 10 - defendingOpponent.getPoisonCounters()) {
+        if (totalPoisonDamage >= poisonToKill) {
             return true;
         }
         for (Card trampler : trampleDmg.keySet()) {
@@ -755,7 +763,7 @@ public class AiAttackController {
                 totalPoisonDamage += dmg;
             }
             totalPoisonDamage += ComputerUtilCombat.predictExtraPoisonWithDamage(trampler, defendingOpponent, dmg);
-            if (totalPoisonDamage >= 10 - defendingOpponent.getPoisonCounters()) {
+            if (totalPoisonDamage >= poisonToKill) {
                 return true;
             }
         }

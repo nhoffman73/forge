@@ -280,6 +280,30 @@ public class ComputerUtilCombat {
      *            a {@link forge.game.combat.Combat} object.
      * @return a boolean.
      */
+    /** CR 810: in Two-Headed Giant, life is one team pool and poison/commander damage count toward the
+     *  loss threshold team-wide, so an attacker aimed at the AI's teammate threatens the AI exactly as
+     *  much as one aimed at the AI itself. Outside 2HG this is just the attackers aimed at {@code ai}. */
+    public static CardCollection getAttackersOfTeam(final Player ai, final Combat combat) {
+        final CardCollection attackers = combat.getAttackersOf(ai);
+        if (ai.getGame().getRules().isTwoHeadedGiant()) {
+            for (final Player mate : ai.getTeamMates(false)) {
+                attackers.addAll(combat.getAttackersOf(mate));
+            }
+        }
+        return attackers;
+    }
+
+    /** Poison counters counting toward {@code p}'s loss threshold: the team's combined total in 2HG. */
+    public static int getTeamPoison(final Player p) {
+        int poison = p.getPoisonCounters();
+        if (p.getGame().getRules().isTwoHeadedGiant()) {
+            for (final Player mate : p.getTeamMates(false)) {
+                poison += mate.getPoisonCounters();
+            }
+        }
+        return poison;
+    }
+
     public static boolean wouldLoseLife(final Player ai, final Combat combat) {
         return lifeThatWouldRemain(ai, combat) < ai.getLife();
     }
@@ -298,7 +322,7 @@ public class ComputerUtilCombat {
         int damage = 0;
 
         if (ai.canLoseLife()) {
-            final List<Card> attackers = combat.getAttackersOf(ai);
+            final List<Card> attackers = getAttackersOfTeam(ai, combat);
             final List<Card> unblocked = Lists.newArrayList();
 
             for (final Card attacker : attackers) {
@@ -334,12 +358,12 @@ public class ComputerUtilCombat {
     public static int resultingPoison(final Player ai, final Combat combat) {
         // ai can't get poison counters, so the value can't change
         if (!ai.canReceiveCounters(CounterEnumType.POISON)) {
-            return ai.getPoisonCounters();
+            return getTeamPoison(ai);
         }
 
         int poison = 0;
 
-        final List<Card> attackers = combat.getAttackersOf(ai);
+        final List<Card> attackers = getAttackersOfTeam(ai, combat);
         final List<Card> unblocked = Lists.newArrayList();
 
         for (final Card attacker : attackers) {
@@ -361,14 +385,21 @@ public class ComputerUtilCombat {
 
         poison += sumPoisonIfUnblocked(unblocked, ai);
 
-        return ai.getPoisonCounters() + poison;
+        return getTeamPoison(ai) + poison;
     }
 
     public static List<Card> getLifeThreateningCommanders(final Player ai, final Combat combat) {
         List<Card> res = Lists.newArrayList();
+        final boolean twoHeadedGiant = ai.getGame().getRules().isTwoHeadedGiant();
+        final List<Card> teamAttackers = getAttackersOfTeam(ai, combat);
         for (Card c : combat.getAttackers()) {
-            if (c.isCommander() && combat.isAttacking(c, ai)) {
+            if (c.isCommander() && teamAttackers.contains(c)) {
                 int currentCommanderDamage = ai.getCommanderDamage(c);
+                if (twoHeadedGiant) {
+                    for (final Player mate : ai.getTeamMates(false)) {
+                        currentCommanderDamage += mate.getCommanderDamage(c);
+                    }
+                }
                 if (damageIfUnblocked(c, ai, combat, false) + currentCommanderDamage >= 21) {
                     res.add(c);
                 }
@@ -408,7 +439,7 @@ public class ComputerUtilCombat {
         }
 
         // check for creatures that must be blocked
-        final List<Card> attackers = combat.getAttackersOf(ai);
+        final List<Card> attackers = getAttackersOfTeam(ai, combat);
 
         final List<Card> threateningCommanders = getLifeThreateningCommanders(ai, combat);
 
@@ -436,7 +467,9 @@ public class ComputerUtilCombat {
             }
         }
 
-        if (resultingPoison(ai, combat) > Math.max(7, ai.getPoisonCounters())) {
+        // 3 short of the loss threshold (7 of 10; 12 of 15 for a 2HG team)
+        final int poisonDanger = ai.getGame().getRules().getPoisonCountersToLose() - 3;
+        if (resultingPoison(ai, combat) > Math.max(poisonDanger, getTeamPoison(ai))) {
             return true;
         }
 
@@ -474,7 +507,7 @@ public class ComputerUtilCombat {
         final List<Card> threateningCommanders = getLifeThreateningCommanders(ai, combat);
 
         // check for creatures that must be blocked
-        final List<Card> attackers = combat.getAttackersOf(ai);
+        final List<Card> attackers = getAttackersOfTeam(ai, combat);
 
         for (final Card attacker : attackers) {
             final List<Card> blockers = combat.getBlockers(attacker);
@@ -2453,7 +2486,7 @@ public class ComputerUtilCombat {
         }
 
         int life = ai.getLife();
-        int poisonLife = 10 - ai.getPoisonCounters();
+        int poisonLife = ai.getGame().getRules().getPoisonCountersToLose() - getTeamPoison(ai);
         double percentLife = life * 1.0 / damageScore;
         double percentPoison = poisonLife * 1.0 / poisonScore;
 

@@ -1,12 +1,14 @@
 package forge.player;
 
 import com.google.common.collect.Lists;
+import forge.ai.ComputerUtilCombat;
 import forge.deck.Deck;
 import forge.game.Game;
 import forge.game.GameRules;
 import forge.game.GameType;
 import forge.game.Match;
 import forge.game.card.Card;
+import forge.game.combat.Combat;
 import forge.game.player.Player;
 import forge.game.player.RegisteredPlayer;
 import org.testng.annotations.Test;
@@ -128,6 +130,23 @@ public class TwoHeadedGiantGameShould {
         assertThat(g.teamAPartner.hasLost()).isTrue();
         assertThat(g.teamBPrimary.hasLost()).isFalse();
         assertThat(g.teamBPartner.hasLost()).isFalse();
+    }
+
+    @Test
+    public void haveTheAiCountAnAttackerAimedAtItsTeammateAgainstTheSharedLife() {
+        // the AI's blocking and "life in danger" decisions all start from this estimate - before the
+        // team-aware fix, a defender saw no threat at all from an attacker aimed at its teammate
+        TwoHeadedGiantGame g = new TwoHeadedGiantGame();
+        final Card attacker = new Card(g.game.nextCardId(), g.game);
+        attacker.addType("Creature");
+        attacker.setBasePower(5);
+        attacker.setBaseToughness(5);
+        attacker.setOwner(g.teamAPrimary);
+
+        final Combat combat = new Combat(g.teamAPrimary);
+        combat.addAttacker(attacker, g.teamBPrimary);
+
+        assertThat(ComputerUtilCombat.lifeThatWouldRemain(g.teamBPartner, combat)).isEqualTo(25);
     }
 
     @Test

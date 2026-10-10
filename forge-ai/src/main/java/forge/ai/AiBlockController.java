@@ -131,10 +131,14 @@ public class AiBlockController {
         CardCollection firstAttacker = new CardCollection();
         final FCollectionView<GameEntity> defenders = combat.getDefenders();
         final List<Card> attackingCmd = ComputerUtilCombat.getLifeThreateningCommanders(ai, combat);
+        // CR 810: in 2HG either defending teammate may block any attacker aimed at their team, and
+        // damage to either comes out of the shared life total - defend the whole team, not just ai
+        final boolean twoHeadedGiant = ai.getGame().getRules().isTwoHeadedGiant();
 
         // If I don't have any planeswalkers then sorting doesn't really matter
         if (defenders.size() == 1 || !attackingCmd.isEmpty()) {
-            final CardCollection attackers = combat.getAttackersOf(defenders.get(0));
+            final CardCollection attackers = twoHeadedGiant ? ComputerUtilCombat.getAttackersOfTeam(ai, combat)
+                    : combat.getAttackersOf(defenders.get(0));
             // Begin with the attackers that pose the biggest threat
             ComputerUtilCard.sortByEvaluateCreature(attackers);
             CardLists.sortByPowerDesc(attackers);
@@ -168,11 +172,11 @@ public class AiBlockController {
                 // Begin with the attackers that pose the biggest threat
                 CardLists.sortByPowerDesc(ccAttackers);
                 sortedAttackers.addAll(ccAttackers);
-            } else if (defender instanceof Player && defender.equals(ai)) {
-                firstAttacker = combat.getAttackersOf(defender);
-                CardLists.sortByPowerDesc(firstAttacker);
+            } else if (defender instanceof Player p && (p.equals(ai) || (twoHeadedGiant && p.sameTeam(ai)))) {
+                firstAttacker.addAll(combat.getAttackersOf(defender));
             }
         }
+        CardLists.sortByPowerDesc(firstAttacker);
 
         if (ComputerUtilCombat.lifeInDanger(ai, combat)) {
             // add creatures attacking the Player to the front of the list
@@ -985,6 +989,18 @@ public class AiBlockController {
         attackersLeft = new ArrayList<>(attackers);
         blockersLeft = new ArrayList<>(possibleBlockers);
         blockedButUnkilled = new ArrayList<>();
+
+        // 2HG: an attacker the teammate already blocked (any blockers left now are theirs - ours were
+        // just removed) doesn't need another chump/trade from us, but we may still help kill it;
+        // reinforceBlockersToKill only adds blockers when the existing ones fall short
+        if (ai.getGame().getRules().isTwoHeadedGiant()) {
+            for (final Card attacker : attackers) {
+                if (!combat.getBlockers(attacker).isEmpty()) {
+                    attackersLeft.remove(attacker);
+                    blockedButUnkilled.add(attacker);
+                }
+            }
+        }
     }
 
     /** Assigns blockers for the provided combat instance (in favor of player passes to ctor) */
