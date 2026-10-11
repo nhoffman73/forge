@@ -90,6 +90,7 @@ public class MatchScreen extends FScreen {
     private final FieldScroller scroller;
     private final VPrompt bottomPlayerPrompt, topPlayerPrompt;
     private VPlayerPanel bottomPlayerPanel, topPlayerPanel;
+    private List<VPlayerPanel> bottomTeamRow, topTeamRow; // 2HG only, see arrangeTeamRows()
     private AbilityEffect activeEffect;
     private BGAnimation bgAnimation;
     private ViewWinLose viewWinLose = null;
@@ -119,6 +120,7 @@ public class MatchScreen extends FScreen {
         bottomPlayerPanel = playerPanels0.get(0);
         bottomPlayerPanel.setFlipped(false);
         topPlayerPanel = playerPanels0.get(1);
+        arrangeTeamRows(playerPanels0);
         playerPanelsList = playerPanels0;
         //reorder list so bottom player is at the end of the list ensuring top to bottom turn order
         playerPanelsList.remove(bottomPlayerPanel);
@@ -129,7 +131,10 @@ public class MatchScreen extends FScreen {
                 e -> getGameController().selectButtonOk(),
                 e -> getGameController().selectButtonCancel()));
 
-        if (humanCount < 2 || MatchController.instance.hotSeatMode() || GuiBase.isNetPlay(MatchController.instance))
+        // 2HG teammates sit side by side, not across the table, so never use the face-to-face
+        // mode (second human's prompt and panel rotated 180 degrees) for them
+        if (humanCount < 2 || MatchController.instance.hotSeatMode() || GuiBase.isNetPlay(MatchController.instance)
+                || bottomTeamRow != null)
             topPlayerPrompt = null;
         else {
             //show top prompt if multiple human players and not playing in Hot Seat mode and not in network play
@@ -186,6 +191,45 @@ public class MatchScreen extends FScreen {
         endpoints = new HashMap<>();
         cardsonBattlefield  = new HashSet<>();
         playerViewSet = new HashSet<>();
+    }
+
+    /**
+     * Two-Headed Giant (Magic Duels-style): instead of four full-width rows, lay the panels out as
+     * two team rows of two side by side - the local team along the bottom (upright), the opposing
+     * team along the top (flipped to face them). Each row's right-hand panel is mirrored so both
+     * teams' avatars sit at the screen's outer edges. Leaves the team rows null (normal stacked
+     * layout) for anything that isn't exactly two teams of two.
+     */
+    private void arrangeTeamRows(final List<VPlayerPanel> panels) {
+        final GameView gameView = MatchController.instance.getGameView();
+        if (gameView == null || !gameView.isTwoHeadedGiant() || panels.size() != 4) {
+            return;
+        }
+        final List<VPlayerPanel> bottomRow = new ArrayList<>();
+        final List<VPlayerPanel> topRow = new ArrayList<>();
+        // seat (turn) order within each row, left to right
+        for (final PlayerView p : gameView.getPlayers()) {
+            final VPlayerPanel panel = playerPanels.get(p);
+            if (panel == null) {
+                return;
+            }
+            if (p.equals(bottomPlayerPanel.getPlayer()) || p.isTeammateOf(bottomPlayerPanel.getPlayer())) {
+                bottomRow.add(panel);
+            } else {
+                topRow.add(panel);
+            }
+        }
+        if (bottomRow.size() != 2 || topRow.size() != 2) {
+            return;
+        }
+        for (final VPlayerPanel panel : bottomRow) {
+            panel.setFlipped(false);
+        }
+        bottomRow.get(1).setMirrored(true);
+        topRow.get(1).setMirrored(true);
+        topPlayerPanel = topRow.get(0);
+        bottomTeamRow = bottomRow;
+        topTeamRow = topRow;
     }
 
     private boolean is4Player() {
@@ -1008,7 +1052,8 @@ public class MatchScreen extends FScreen {
 
         @Override
         public void drawOverlay(Graphics g) {
-            if (Forge.isLandscapeMode()) {
+            // 2HG teammates lose together (ending the game), so there's no surviving-players re-layout to do
+            if (Forge.isLandscapeMode() && bottomTeamRow == null) {
                 if (playerPanelsList.size() > 2) {
                     for (VPlayerPanel playerPanel : playerPanelsList) {
                         if (playerPanel.getPlayer().getHasLost()) {
@@ -1067,6 +1112,13 @@ public class MatchScreen extends FScreen {
                 y = bottomPlayerPanel.getTop() + bottomPlayerPanel.getField().getHeight();
                 g.drawLine(1, getBorderColor(), x, y, w, y);
             }
+
+            // 2HG: divider between the two teammates' halves of each team row
+            if (bottomTeamRow != null) {
+                for (final VPlayerPanel right : new VPlayerPanel[] {topTeamRow.get(1), bottomTeamRow.get(1)}) {
+                    g.drawLine(1, getBorderColor(), right.getLeft(), right.getTop(), right.getLeft(), right.getBottom());
+                }
+            }
         }
 
         protected ScrollBounds layoutAndGetScrollBounds(float visibleWidth, float visibleHeight) {
@@ -1077,7 +1129,12 @@ public class MatchScreen extends FScreen {
             }
             float playerCount = getPlayerPanels().keySet().size();
 
-            if (Forge.isLandscapeMode() && playerCount == 2) {
+            if (bottomTeamRow != null) {
+                // 2HG: two equal-height team rows, each split between the two teammates
+                final float rowHeight = totalHeight / 2;
+                layoutTeamRow(topTeamRow, 0, visibleWidth, rowHeight);
+                layoutTeamRow(bottomTeamRow, totalHeight - rowHeight, visibleWidth, rowHeight);
+            } else if (Forge.isLandscapeMode() && playerCount == 2) {
                 // Ensure that players have equal player panel heights in two player Forge in Landscape mode
                 float topPlayerPanelHeight = totalHeight / 2;
                 float bottomPlayerPanelHeight = topPlayerPanelHeight;
@@ -1108,6 +1165,12 @@ public class MatchScreen extends FScreen {
             }
 
             return new ScrollBounds(visibleWidth, totalHeight);
+        }
+
+        private void layoutTeamRow(final List<VPlayerPanel> row, final float y, final float width, final float height) {
+            final float halfWidth = width / 2;
+            row.get(0).setBounds(0, y, halfWidth, height);
+            row.get(1).setBounds(halfWidth, y, width - halfWidth, height);
         }
 
         @Override

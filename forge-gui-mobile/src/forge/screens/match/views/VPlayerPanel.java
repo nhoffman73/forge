@@ -90,6 +90,9 @@ public class VPlayerPanel extends FContainer {
     public int adjustHeight = 1;
     private int selected = 0;
     private boolean isBottomPlayer = false;
+    // 2HG team rows (Magic Duels-style): the right-hand panel of a row mirrors its layout so its
+    // avatar/life/zone tabs sit on the screen's outer edge instead of against its teammate's field
+    private boolean mirrored = false;
 
     public VPlayerPanel(PlayerView player0, boolean showHand, int playerCount) {
         player = player0;
@@ -241,6 +244,20 @@ public class VPlayerPanel extends FContainer {
         field.setFlipped(flipped0);
     }
 
+    public void setMirrored(boolean mirrored0) {
+        mirrored = mirrored0;
+    }
+
+    /** Flips every child across the panel's vertical center line (see {@link #mirrored}). */
+    private void applyMirror(float width) {
+        if (!mirrored) {
+            return;
+        }
+        for (FDisplayObject child : getChildren()) {
+            child.setLeft(width - child.getRight());
+        }
+    }
+
     @Override
     public void setRotate180(boolean b0) {
         //only rotate certain parts of panel
@@ -299,8 +316,13 @@ public class VPlayerPanel extends FContainer {
             field.update(true);
         } else if (zoneType == ZoneType.Command) {
             commandZone.update();
-            if (selectedTab != null && Forge.isHorizontalTabLayout())
-                updateTabLayout(initW, initH);
+            if (selectedTab != null && Forge.isHorizontalTabLayout()) {
+                if (mirrored) {
+                    doLandscapeLayout(initW, initH); // a partial relayout would un-mirror only some children
+                } else {
+                    updateTabLayout(initW, initH);
+                }
+            }
         } else {
             if (zoneTabs.containsKey(zoneType))
                 zoneTabs.get(zoneType).update();
@@ -379,6 +401,7 @@ public class VPlayerPanel extends FContainer {
 
         //this is used for landscape so set this to 0
         field.setFieldModifier(0);
+        applyMirror(width);
     }
 
     private float initW, initH, commandZoneWidth, commandZoneCount, avatarWidth, prefWidth;
@@ -421,6 +444,7 @@ public class VPlayerPanel extends FContainer {
             }
         }
         updateTabLayout(width, height);
+        applyMirror(width);
     }
 
     private void updateTabLayout(float width, float height) {
