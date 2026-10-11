@@ -93,6 +93,12 @@ public class VPlayerPanel extends FContainer {
     // 2HG team rows (Magic Duels-style): the right-hand panel of a row mirrors its layout so its
     // avatar/life/zone tabs sit on the screen's outer edge instead of against its teammate's field
     private boolean mirrored = false;
+    // 2HG team rows: half-width panels laid out Magic Duels-style - an opened zone (the hand, for a
+    // local player) runs as a one-row strip along the field's outer edge instead of a side column,
+    // and the command zone sits at the field's center-facing corner. See doTeamRowLayout().
+    private boolean teamRowLayout = false;
+    private static final float TEAM_ROW_ZONE_STRIP = 0.32f; // fraction of panel height
+    private static final Color ACTIVE_FRAME_COLOR = new Color(240 / 255f, 190 / 255f, 40 / 255f, 1f);
 
     public VPlayerPanel(PlayerView player0, boolean showHand, int playerCount) {
         player = player0;
@@ -246,6 +252,51 @@ public class VPlayerPanel extends FContainer {
 
     public void setMirrored(boolean mirrored0) {
         mirrored = mirrored0;
+    }
+
+    public void setTeamRowLayout(boolean teamRowLayout0) {
+        teamRowLayout = teamRowLayout0;
+        for (InfoTabZone tab : zoneTabs.values()) {
+            if (tab.displayArea instanceof VZoneDisplay zoneDisplay) {
+                zoneDisplay.setSingleRow(teamRowLayout0);
+            }
+        }
+        field.setCommandZoneOnRow1(teamRowLayout0);
+    }
+
+    /** Field across the panel, any opened zone as a strip along its outer edge (bottom for the
+     *  upright local team, top for the flipped opponents), command zone at the field's
+     *  center-facing corner - after {@link #applyMirror} a right-hand panel's lands on its left,
+     *  so all four teams' command zones cluster around the middle of the screen. */
+    private void doTeamRowLayout(float width, float height) {
+        float x = avatar.getRight();
+        phaseIndicator.resetFont();
+        phaseIndicator.setBounds(x, 0, avatar.getWidth() * 0.6f, height);
+        x += phaseIndicator.getWidth();
+
+        final float fieldWidth = width - x;
+        final float stripHeight = height * TEAM_ROW_ZONE_STRIP;
+        final boolean flipped = isFlipped();
+        final float fieldHeight = selectedTab != null ? height - stripHeight : height;
+        final float fieldTop = selectedTab != null && flipped ? stripHeight : 0;
+        for (InfoTab tab : tabs) {
+            tab.setDisplayBounds(x, flipped ? 0 : height - stripHeight, fieldWidth, stripHeight);
+        }
+
+        commandZoneWidth = 0f;
+        commandZoneCount = commandZone.getCount();
+        if (commandZoneCount > 0) {
+            final float commandZoneHeight = fieldHeight / 2; // one field row
+            commandZoneWidth = Math.min(commandZoneCount, 2) * commandZone.getCardWidth(commandZoneHeight);
+            commandZone.setBounds(x + fieldWidth - commandZoneWidth,
+                    flipped ? fieldTop + fieldHeight - commandZoneHeight : fieldTop,
+                    commandZoneWidth, commandZoneHeight);
+            field.setCommandZoneWidth(commandZoneWidth + 1);
+        } else {
+            field.setCommandZoneWidth(0);
+        }
+        field.setBounds(x, fieldTop, fieldWidth, fieldHeight);
+        field.setFieldModifier(0);
     }
 
     /** Flips every child across the panel's vertical center line (see {@link #mirrored}). */
@@ -448,6 +499,10 @@ public class VPlayerPanel extends FContainer {
     }
 
     private void updateTabLayout(float width, float height) {
+        if (teamRowLayout) {
+            doTeamRowLayout(width, height);
+            return;
+        }
         float x = avatar.getRight();
         phaseIndicator.resetFont();
         phaseIndicator.setBounds(x, 0, avatar.getWidth() * 0.6f, height);
@@ -524,6 +579,11 @@ public class VPlayerPanel extends FContainer {
             }
         }
         super.drawOverlay(g);
+        // 2HG: frame whoever holds priority, so it's clear at a glance whose action it is
+        if (teamRowLayout && player.getHasPriority()) {
+            final float t = Utils.scale(3);
+            g.drawRect(t, ACTIVE_FRAME_COLOR, t / 2, t / 2, getWidth() - t, getHeight() - t);
+        }
     }
 
     @Override

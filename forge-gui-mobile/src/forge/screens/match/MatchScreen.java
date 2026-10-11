@@ -225,6 +225,9 @@ public class MatchScreen extends FScreen {
         for (final VPlayerPanel panel : bottomRow) {
             panel.setFlipped(false);
         }
+        for (final VPlayerPanel panel : panels) {
+            panel.setTeamRowLayout(true);
+        }
         bottomRow.get(1).setMirrored(true);
         topRow.get(1).setMirrored(true);
         topPlayerPanel = topRow.get(0);

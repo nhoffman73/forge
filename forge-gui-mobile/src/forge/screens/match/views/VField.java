@@ -22,6 +22,7 @@ public class VField extends FContainer {
     private final FieldRow row1, row2;
     private boolean flipped;
     private float commandZoneWidth;
+    private boolean commandZoneOnRow1 = false;
     private float fieldModifier;
     private final boolean stackNonTokenCreatures;
     private final List<CardView> creatures = new ArrayList<>();
@@ -231,6 +232,11 @@ public class VField extends FContainer {
         commandZoneWidth = commandZoneWidth0;
     }
 
+    /** 2HG team rows put the command zone beside the center-facing row (row1) instead of row2. */
+    void setCommandZoneOnRow1(boolean onRow1) {
+        commandZoneOnRow1 = onRow1;
+    }
+
     void setFieldModifier(float fieldModifierWidth) {
         fieldModifier = fieldModifierWidth;
     }
@@ -256,8 +262,8 @@ public class VField extends FContainer {
             row1.setBounds(0, y1, width, cardSize);
             row2.setBounds(0, y2, width, cardSize);
         } else {
-            row1.setBounds(0, y1, width - fieldModifier, cardSize);
-            row2.setBounds(0, y2, (width - commandZoneWidth) - fieldModifier, cardSize);
+            row1.setBounds(0, y1, (width - (commandZoneOnRow1 ? commandZoneWidth : 0)) - fieldModifier, cardSize);
+            row2.setBounds(0, y2, (width - (commandZoneOnRow1 ? 0 : commandZoneWidth)) - fieldModifier, cardSize);
         }
     }
 

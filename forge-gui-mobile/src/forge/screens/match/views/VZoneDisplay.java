@@ -16,6 +16,9 @@ public class VZoneDisplay extends VCardDisplayArea {
     private final PlayerView player;
     private final ZoneType zoneType;
     private FCardPanel revealedPanel;
+    // 2HG team rows show zones as a strip along the field's edge - lay cards out in one
+    // overlapping row there instead of the landscape-mode two-column grid
+    private boolean singleRow = false;
 
     public VZoneDisplay(PlayerView player0, ZoneType zoneType0) {
         player = player0;
@@ -116,8 +119,12 @@ public class VZoneDisplay extends VCardDisplayArea {
         super.clear();
     }
 
+    public void setSingleRow(boolean singleRow0) {
+        singleRow = singleRow0;
+    }
+
     protected boolean layoutVerticallyForLandscapeMode() {
-        return !Forge.altZoneTabs || !"Horizontal".equalsIgnoreCase(Forge.altZoneTabMode);
+        return !singleRow && (!Forge.altZoneTabs || !"Horizontal".equalsIgnoreCase(Forge.altZoneTabMode));
     }
 
     @Override
