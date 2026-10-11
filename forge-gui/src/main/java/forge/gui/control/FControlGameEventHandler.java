@@ -10,6 +10,7 @@ import forge.game.event.*;
 import forge.game.player.PlayerView;
 import forge.game.spellability.SpellAbilityStackInstance;
 import forge.game.zone.ZoneType;
+import forge.gamemodes.match.AbstractGuiGame;
 import forge.gamemodes.match.YieldController;
 import forge.gui.GuiBase;
 import forge.gui.interfaces.IGuiGame;
@@ -202,7 +203,18 @@ public class FControlGameEventHandler extends IGameEventVisitor.Base<Void> {
         final PlayerView me = humanController.getLocalPlayerView();
         final boolean heads;
         final String msg;
-        if (ev.startingToss()) {
+        final GameView gameView = matchController.getGameView();
+        if (ev.startingToss() && gameView != null && gameView.isTwoHeadedGiant()) {
+            if (me == null || !isFirstLocalPlayer(me, gameView)) { return null; }
+            // 2HG: the toss is won by a team (the winner's whole team takes the first turn), and one
+            // screen can host both teammates' controllers - so announce it once per screen, naming
+            // the winning team, instead of each local player's own won/lost (which showed "lost"
+            // twice when an opponent won, or "lost" to a player whose teammate then got to choose)
+            final PlayerView winner = ev.flipper();
+            final PlayerView winnerMate = winner.getTeamMates().isEmpty() ? winner : winner.getTeamMates().get(0);
+            heads = winner.equals(me) || winner.isTeammateOf(me);
+            msg = Localizer.getInstance().getMessage("lblTeamWonTheCoinToss", winner.getName(), winnerMate.getName());
+        } else if (ev.startingToss()) {
             if (me == null) { return null; }   // spectators
             heads = me.equals(ev.flipper());
             msg = Localizer.getInstance().getMessage(
@@ -215,6 +227,19 @@ public class FControlGameEventHandler extends IGameEventVisitor.Base<Void> {
         }
         matchController.showCoinFlip(heads, msg, ev.startingToss());   // tap required only for the opening toss
         return null;
+    }
+
+    /** Whether {@code me} is the earliest-seated player this screen controls (true if unknown). */
+    private boolean isFirstLocalPlayer(final PlayerView me, final GameView gameView) {
+        if (!(matchController instanceof AbstractGuiGame gui)) {
+            return true;
+        }
+        for (final PlayerView p : gameView.getPlayers()) {
+            if (gui.isLocalPlayer(p)) {
+                return p.equals(me);
+            }
+        }
+        return true;
     }
 
     @Override

@@ -491,6 +491,15 @@ public class MatchScreen extends FScreen {
                                             if ((cardY + (cardH - adjY)) > bottomPlayerPrompt.screenPos.y)
                                                 cardY = bottomPlayerPrompt.screenPos.y - (cardH - adjY);
                                         }
+                                        // The placement rules above assume each zone strip sits on the
+                                        // screen's right; 2HG's half-width panels put cards near the left
+                                        // edge too, where "show it to the card's left" runs off-screen -
+                                        // flip to the card's right instead, then keep it inside the window.
+                                        if (cardX < scroller.getLeft()) {
+                                            cardX = cardPanel.screenPos.x + cardPanel.getWidth() + adjX;
+                                        }
+                                        cardX = Math.max(scroller.getLeft(), Math.min(cardX, scroller.getRight() - cardW - adjX));
+                                        cardY = Math.max(0, Math.min(cardY, getHeight() - cardH));
                                         if (Forge.magnifyShowDetails)
                                             CardImageRenderer.drawDetails(g, cardView, MatchController.instance.getGameView(), false, cardX, cardY, cardW, cardH);
                                         else

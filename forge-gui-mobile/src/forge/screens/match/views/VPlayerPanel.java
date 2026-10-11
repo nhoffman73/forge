@@ -295,6 +295,7 @@ public class VPlayerPanel extends FContainer {
         } else {
             field.setCommandZoneWidth(0);
         }
+        field.setCommandZoneAtStart(mirrored);
         field.setBounds(x, fieldTop, fieldWidth, fieldHeight);
         field.setFieldModifier(0);
     }

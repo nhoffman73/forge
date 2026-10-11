@@ -23,6 +23,7 @@ public class VField extends FContainer {
     private boolean flipped;
     private float commandZoneWidth;
     private boolean commandZoneOnRow1 = false;
+    private boolean commandZoneAtStart = false;
     private float fieldModifier;
     private final boolean stackNonTokenCreatures;
     private final List<CardView> creatures = new ArrayList<>();
@@ -237,6 +238,12 @@ public class VField extends FContainer {
         commandZoneOnRow1 = onRow1;
     }
 
+    /** True when the command zone sits at the field's left end rather than its right - a mirrored
+     *  2HG panel moves its children but not this field's rows, so row1 must start after it. */
+    void setCommandZoneAtStart(boolean atStart) {
+        commandZoneAtStart = atStart;
+    }
+
     void setFieldModifier(float fieldModifierWidth) {
         fieldModifier = fieldModifierWidth;
     }
@@ -262,7 +269,8 @@ public class VField extends FContainer {
             row1.setBounds(0, y1, width, cardSize);
             row2.setBounds(0, y2, width, cardSize);
         } else {
-            row1.setBounds(0, y1, (width - (commandZoneOnRow1 ? commandZoneWidth : 0)) - fieldModifier, cardSize);
+            final float row1Cut = commandZoneOnRow1 ? commandZoneWidth : 0;
+            row1.setBounds(commandZoneAtStart ? row1Cut : 0, y1, (width - row1Cut) - fieldModifier, cardSize);
             row2.setBounds(0, y2, (width - (commandZoneOnRow1 ? 0 : commandZoneWidth)) - fieldModifier, cardSize);
         }
     }
