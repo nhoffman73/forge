@@ -44,6 +44,18 @@ public class SettingsPage extends TabPage<SettingsScreen> {
     private final CustomSelectSetting settingSkins;
     private final CustomSelectSetting settingCJKFonts;
 
+    /** The window size is fixed when Forge starts (its whole layout is sized once, at launch), so a
+     *  display change only applies after a restart - offer one now instead of silently waiting. */
+    public static void promptRestartForDisplayChange() {
+        FOptionPane.showConfirmDialog(Forge.getLocalizer().getMessage("lblRestartForgeDescription"),
+                Forge.getLocalizer().getMessage("lblRestartForge"), Forge.getLocalizer().getMessage("lblRestart"),
+                Forge.getLocalizer().getMessage("lblLater"), result -> {
+                    if (result) {
+                        Forge.restart(true);
+                    }
+                });
+    }
+
     public SettingsPage() {
         super(Forge.getLocalizer().getMessage("lblSettings"), Forge.hdbuttons ? FSkinImage.HDPREFERENCE : FSkinImage.SETTINGS);
 
@@ -150,6 +162,7 @@ public class SettingsPage extends TabPage<SettingsScreen> {
                         super.select();
                         Config.instance().getSettingData().fullScreen = FModel.getPreferences().getPrefBoolean(FPref.UI_FULLSCREEN_MODE);
                         Config.instance().saveSettings();
+                        promptRestartForDisplayChange();
                     }
                 }, 0);
             lstSettings.addItem(new CustomSelectSetting(FPref.UI_VIDEO_MODE,
@@ -160,6 +173,7 @@ public class SettingsPage extends TabPage<SettingsScreen> {
                     public void valueChanged(String newValue) {
                         super.valueChanged(newValue);
                         Graphics.setVideoMode(newValue);
+                        promptRestartForDisplayChange();
                     }
                 }, 0);
         }

@@ -17,6 +17,7 @@ import forge.localinstance.properties.ForgeConstants;
 import forge.localinstance.properties.ForgePreferences;
 import forge.model.FModel;
 import forge.screens.match.CardFlightOverlay;
+import forge.screens.settings.SettingsPage;
 import forge.sound.SoundSystem;
 import forge.util.Localizer;
 
@@ -142,6 +143,7 @@ public class SettingsScene extends UIScene {
                 if (!FModel.getPreferences().getPref(ForgePreferences.FPref.UI_VIDEO_MODE).equalsIgnoreCase(mode)) {
                     FModel.getPreferences().setPref(ForgePreferences.FPref.UI_VIDEO_MODE, mode);
                     FModel.getPreferences().save();
+                    SettingsPage.promptRestartForDisplayChange();
                 }
                 return null;
             });
@@ -203,6 +205,7 @@ public class SettingsScene extends UIScene {
                     //update
                     FModel.getPreferences().setPref(ForgePreferences.FPref.UI_FULLSCREEN_MODE, Config.instance().getSettingData().fullScreen);
                     FModel.getPreferences().save();
+                    SettingsPage.promptRestartForDisplayChange();
                 }
             });
         }

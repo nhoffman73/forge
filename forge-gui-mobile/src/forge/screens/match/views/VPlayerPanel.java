@@ -262,6 +262,7 @@ public class VPlayerPanel extends FContainer {
             }
         }
         field.setCommandZoneOnRow1(teamRowLayout0);
+        field.setFitRowsToWidth(teamRowLayout0);
     }
 
     /** Field across the panel, any opened zone as a strip along its outer edge (bottom for the

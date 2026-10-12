@@ -90,7 +90,7 @@ public class Config {
             settingsData.height = 720;
         }
         if (settingsData.videomode == null || settingsData.videomode.isEmpty())
-            settingsData.videomode = "720p";
+            settingsData.videomode = ForgeConstants.VIDEO_MODE_FIT_SCREEN;
         //reward card display fine tune
         if (settingsData.rewardCardAdj == null || settingsData.rewardCardAdj == 0f)
             settingsData.rewardCardAdj = 1f;
@@ -180,6 +180,7 @@ public class Config {
                     break;
                 case "900p":
                 case "1080p":
+                case ForgeConstants.VIDEO_MODE_FIT_SCREEN:
                     val = 16;
                     break;
                 case "1440p":

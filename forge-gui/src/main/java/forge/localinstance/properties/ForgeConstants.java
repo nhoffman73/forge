@@ -387,7 +387,9 @@ public final class ForgeConstants {
     public static final boolean isGdxPortLandscape = FileUtil.doesFileExist(ASSETS_DIR + "switch_orientation.ini");
 
     // Supported video mode names and dimensions (currently used in Adventure Mode)
-    public static final String[] VIDEO_MODES = {"720p", "768p", "900p", "1080p", "1440p", "2160p"};
+    // "Fit Screen": a borderless window sized to whatever monitor Forge launches on (resolved at launch)
+    public static final String VIDEO_MODE_FIT_SCREEN = "Fit Screen";
+    public static final String[] VIDEO_MODES = {VIDEO_MODE_FIT_SCREEN, "720p", "768p", "900p", "1080p", "1440p", "2160p"};
 
     public static Map<String, String> getUPnPPreferenceMapping() {
         return Map.of(

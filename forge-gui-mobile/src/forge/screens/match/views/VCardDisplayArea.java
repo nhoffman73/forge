@@ -236,12 +236,16 @@ public abstract class VCardDisplayArea extends VDisplayArea implements ActivateH
 
     @Override
     protected ScrollBounds layoutAndGetScrollBounds(float visibleWidth, float visibleHeight) {
+        return new ScrollBounds(layoutCards(visibleHeight, 0), visibleHeight);
+    }
+
+    /** Lays the cards out left to right at the given card height, {@code y} from the top;
+     *  returns the total width used. */
+    protected float layoutCards(float cardHeight, float y) {
         orderedCards.get().clear();
         infoGhostCardIds.get().clear();
 
         float x = 0;
-        float y = 0;
-        float cardHeight = visibleHeight;
         float cardWidth = getCardWidth(cardHeight);
 
         for (CardAreaPanel cardPanel : new ArrayList<>(cardPanels.get())) {
@@ -250,8 +254,7 @@ public abstract class VCardDisplayArea extends VDisplayArea implements ActivateH
                 x += cardWidth + (count - 1) * cardWidth * getCardStackOffset();
             }
         }
-
-        return new ScrollBounds(x, visibleHeight);
+        return x;
     }
 
     @Override

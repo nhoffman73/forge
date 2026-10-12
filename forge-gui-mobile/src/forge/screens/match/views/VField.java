@@ -275,12 +275,33 @@ public class VField extends FContainer {
         }
     }
 
+    /** 2HG half-width panels: shrink a row's cards to fit its width rather than letting the row
+     *  scroll sideways, which left cards sitting out of view (e.g. a fifth land) until something
+     *  re-laid the row out. */
+    void setFitRowsToWidth(boolean fit) {
+        row1.fitToWidth = fit;
+        row2.fitToWidth = fit;
+    }
+
     public class FieldRow extends VCardDisplayArea {
         private int selected = -1;
         private FDisplayObject selectedChild;
+        private boolean fitToWidth = false;
 
         private FieldRow() {
             setVisible(true); //make visible by default unlike other display areas
+        }
+
+        @Override
+        protected ScrollBounds layoutAndGetScrollBounds(float visibleWidth, float visibleHeight) {
+            final float width = layoutCards(visibleHeight, 0);
+            if (!fitToWidth || width <= visibleWidth) {
+                return new ScrollBounds(width, visibleHeight);
+            }
+            // row width scales linearly with card height, so this fits exactly; keep it vertically centered
+            final float cardHeight = visibleHeight * visibleWidth / width;
+            layoutCards(cardHeight, (visibleHeight - cardHeight) / 2);
+            return new ScrollBounds(visibleWidth, visibleHeight);
         }
 
         @Override

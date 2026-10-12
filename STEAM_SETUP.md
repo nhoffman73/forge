@@ -31,9 +31,16 @@ These are two different Steam features and it matters which one you use:
 1. Open Steam on the desktop PC.
 2. Library → **Add a Game** (bottom-left, or Games menu) → **Add a Non-Steam
    Game**.
-3. Browse to `C:\Users\nhoff\dev\forge-run2\forge.exe` (or wherever you've
-   extracted the latest built bundle - see the build notes below) and add it.
+3. Browse to `forge-adventure.exe` in your run folder (e.g.
+   `C:\Users\nhoff\dev\forge-run2\forge-adventure.exe` - see the build notes
+   below) and add it. This is the libGDX UI the 2HG couch layout (team rows,
+   hand strips, priority frame) is built in; `forge.exe` is the older Swing
+   desktop UI, which still runs the same rules but not that layout.
 4. It'll now show up as a regular entry in your Steam library.
+5. In Forge's Settings, leave **Video Mode** on **Fit Screen** (the default on a
+   fresh install): it sizes Forge to whatever display it launches on, so the
+   same install fits the desktop monitor and the streamed TV picture without
+   picking a resolution. Display changes offer to restart Forge to apply.
 
 ### 2. Enable Remote Play on the desktop
 
@@ -97,14 +104,14 @@ missing the `res/` folder). From `C:\Users\nhoff\dev\forge`:
 mvn -U -B clean -P windows-linux install -DskipTests
 ```
 
-Then extract the fresh bundle (pick a new folder name each time to dodge
-Windows file-lock flakiness with the previous extraction):
+Then copy the fresh build into your single run folder (close Forge first - a
+running copy file-locks it). Don't `tar -xjf` the `.tar.bz2`: in a real session
+that silently failed to overwrite the exe/jars, so an old build kept running.
 
 ```powershell
-tar -xjf forge-installer\target\forge-installer-2.0.16-SNAPSHOT.tar.bz2 -C ..\forge-run-N
+robocopy "forge-installer\target\forge-installer-2.0.16-SNAPSHOT" "..\forge-run2" /E /XO
 ```
 
-`forge.exe` (or `forge.cmd`) in that folder is what you point the Steam
-shortcut at. If you re-add the shortcut each time, un-add the old one first,
-or just overwrite the exe at a fixed path instead of making a new folder
-every time.
+Check `forge-adventure.exe`'s timestamp matches the build. Because the run
+folder path never changes, the Steam shortcut keeps working - no need to
+re-add it after a rebuild.

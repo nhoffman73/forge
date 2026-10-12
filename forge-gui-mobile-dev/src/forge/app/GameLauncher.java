@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.glutils.HdpiMode;
 import forge.util.HWInfo;
 import forge.Forge;
 import forge.adventure.util.Config;
+import forge.localinstance.properties.ForgeConstants;
 import io.sentry.protocol.Device;
 import io.sentry.protocol.OperatingSystem;
 import org.lwjgl.system.Configuration;
@@ -110,6 +111,15 @@ public class GameLauncher {
         if (Config.instance().getSettingData().fullScreen) {
             config.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
             config.setAutoIconify(true);
+        } else if (widthArg == null && heightArg == null
+                && ForgeConstants.VIDEO_MODE_FIT_SCREEN.equals(Config.instance().getSettingData().videomode)) {
+            // Fit Screen: a borderless window covering whichever monitor this launches on, so the same
+            // settings fill a laptop screen or a desktop/TV without picking a resolution for each
+            final DisplayMode dm = Lwjgl3ApplicationConfiguration.getDisplayMode();
+            config.setWindowedMode(dm.width, dm.height);
+            config.setDecorated(false);
+            config.setWindowPosition(0, 0);
+            config.setResizable(false);
         } else {
             config.setWindowedMode(windowWidth, windowHeight);
             config.setResizable(false);

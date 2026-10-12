@@ -20,6 +20,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.utils.ScissorStack;
 import com.badlogic.gdx.utils.Disposable;
 import forge.adventure.util.Config;
+import forge.localinstance.properties.ForgeConstants;
 import forge.assets.FImage;
 import forge.assets.FSkinColor;
 import forge.assets.FSkinFont;
@@ -2214,6 +2215,8 @@ public class Graphics implements Disposable {
             videoMode = "720p";
         Config.instance().getSettingData().videomode = videoMode;
         switch (videoMode) {
+            case ForgeConstants.VIDEO_MODE_FIT_SCREEN:
+                break; // the launcher sizes the window to the current monitor at startup
             case "768p":
                 Config.instance().getSettingData().width = 1366;
                 Config.instance().getSettingData().height = 768;
